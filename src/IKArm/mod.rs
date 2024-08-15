@@ -20,6 +20,7 @@ fn handle_ik(
     children_query: Query<&Children>,
     parent_query: Query<(Entity, &SkinnedMesh)>,
     mut transform_query: Query<&mut Transform>,
+    mut gtransform_query: Query<&mut GlobalTransform>,
     mut gizmos: Gizmos,
 
 ) {
@@ -27,8 +28,9 @@ fn handle_ik(
         for child in children_query.iter_descendants(arm_entity) {
             let Ok((entity, skinned_mesh)) = parent_query.get(child) else {continue;};
             let target_position: Vec3 = arm.target;
-            let Ok([mut t0, mut t1, transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], arm_entity]) else { println!("fuck"); continue; };
-            let dir = (target_position - transform.translation);
+            let Ok(transform) = gtransform_query.get(arm_entity) else { println!("fuck"); continue; };
+            let Ok([mut t0, mut t1]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1]]) else { println!("fuck"); continue; };
+            let dir = (target_position - transform.translation());
             let (y, z) = calc_angles(&transform, dir);
             let d_a: f32 = t0.translation.distance(t1.translation);
             let d_b: f32 = t0.translation.distance(t1.translation);
@@ -52,8 +54,8 @@ fn handle_ik(
     }
 }
 
-fn calc_angles(transform: &Transform, dir: Vec3) -> (f32, f32) {
-    let y = (-transform.local_x()).xz().angle_between(dir.xz());
+fn calc_angles(transform: &GlobalTransform, dir: Vec3) -> (f32, f32) {
+    let y = (-transform.right()).xz().angle_between(dir.xz());
     let mut inbetween = dir;
     inbetween.y = 0.;
     let mut z = dir.angle_between(inbetween);

@@ -51,6 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
     )).id();
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
+    /*
     commands.spawn((SceneBundle {
         scene: asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("leg/leg.glb")),
@@ -71,7 +72,59 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
             step_elapsed: 0.
         }
     ));
+ */
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(0.3, 0.3, 0.3)),
+            material: materials.add(Color::srgb_u8(10, 10, 10)),
+            transform: Transform::from_xyz(0., 0.3, 0.0),
+            ..default()
+        },
+        Movable,
+    )).with_children(|parent| {
+        for i in 0..2 {
+            let side_mult = if (i == 0) { 1. }  else {-1.};
+            parent.spawn((SceneBundle {
+                scene: asset_server
+                    .load(GltfAssetLabel::Scene(0).from_asset("leg/leg.glb")),
+                transform: Transform::from_xyz(0.15 * side_mult, -0.2, -0.1),
+                ..default()
+                }, 
+                IKArm::IKArm { 
+                    target: Vec3{x: 1., y: 0., z: 1.}
+                },
+                Leg { 
+                    step_offset: Vec3{x: 0.5 * side_mult, y: -0.1, z: -0.35 }, 
+                    step_distance: 0.35, 
+                    step_duration: 0.15,
+                    step_height: 0.3,
+                    stepping: false,
+                    step_start: Vec3::ZERO,
+                    step_elapsed: 0.
+                }
+            ));
 
+            parent.spawn((SceneBundle {
+                scene: asset_server
+                    .load(GltfAssetLabel::Scene(0).from_asset("leg/leg.glb")),
+                transform: Transform::from_xyz(0.15 * side_mult, -0.2, 0.1),
+                ..default()
+                }, 
+                IKArm::IKArm { 
+                    target: Vec3{x: 1., y: 0., z: 1.}
+                },
+                Leg { 
+                    step_offset: Vec3{x: 0.5 * side_mult, y: -0.1, z: 0.35 }, 
+                    step_distance: 0.25, 
+                    step_duration: 0.15,
+                    step_height: 0.3,
+                    stepping: false,
+                    step_start: Vec3::ZERO,
+                    step_elapsed: 0.
+                }
+            ));
+        }
+    });
     commands.spawn(SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
@@ -90,11 +143,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
 }
 
 fn handle_legs(
-    mut leg_query: Query<(&Transform, &mut IKArm::IKArm, &mut Leg)>,
+    mut leg_query: Query<(&GlobalTransform, &mut IKArm::IKArm, &mut Leg)>,
     time: Res<Time>,
 ) {
     for (transform, mut arm, mut leg) in leg_query.iter_mut() {
-        let desired_pos = transform.translation + leg.step_offset;
+        let desired_pos = transform.translation() + leg.step_offset;
         let distance = arm.target.distance(desired_pos);
         if (!leg.stepping) {
             if (distance > leg.step_distance) {
