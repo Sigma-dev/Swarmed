@@ -56,11 +56,10 @@ fn handle_height(
     mut raycast: Raycast,
 ) {
     for (mut transform, leg_creature) in leg_creature_query.iter_mut() {
-        let ray = Ray3d::new(transform.translation + Vec3::Y, Vec3::NEG_Y);
+        let ray = Ray3d::new(transform.translation, Vec3::NEG_Y);
         let hits = raycast.cast_ray(ray, &RaycastSettings::default());
         if let Some((hit, hit_data)) = hits.first() {
-            println!("{}", hit_data.position().y);
-            transform.translation.y = transform.translation.y.lerp(hit_data.position().y, 0.01);
+            transform.translation.y = transform.translation.y.lerp(hit_data.position().y + leg_creature.target_height, 0.05);
         };
 
     }
