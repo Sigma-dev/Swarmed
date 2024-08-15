@@ -8,6 +8,9 @@ struct Movable;
 #[derive(Component)]
 struct Target;
 
+#[derive(Component)]
+struct IKArm;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -45,9 +48,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
     commands.spawn((SceneBundle {
         scene: asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("leg/leg.glb")),
-        transform: Transform::from_xyz(0.0, 0., 0.0),
+        transform: Transform::from_xyz(0.0, 0.03, 0.0),
         ..default()
-    }, Movable));
+    }, Movable, IKArm));
 
     commands.spawn(SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),
@@ -70,8 +73,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
 
 fn joint_animation(
     time: Res<Time>,
-    parent_query: Query<(Entity, &Parent, &SkinnedMesh)>,
-    children_query: Query<(&Children)>,
+    arm_query: Query<(Entity, &IKArm)>,
+    children_query: Query<&Children>,
+    parent_query: Query<(Entity, &SkinnedMesh)>,
     movable_query: Query<Entity, With<Target>>,
     mut transform_query: Query<&mut Transform>,
     mut gizmos: Gizmos,
@@ -79,49 +83,31 @@ fn joint_animation(
 ) {
     let Ok((target_entity)) = movable_query.get_single() else { return; };
     // Iter skinned mesh entity
-    for (entity, skinned_mesh_parent, skinned_mesh) in &parent_query {
-        let Ok([mut t0, mut t1, target, transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], target_entity, entity]) else { println!("fuck"); continue; };
-        let dir = (target.translation - transform.translation);
-        //let y = (-transform.local_x()).xz().angle_between(dir.xz());
-        let (y, z) = calc_angles(&transform, dir);
-        println!("{}", y.to_degrees());
-       //gizmos.ray(Vec3::ZERO, dir, Color::srgb(1., 0., 0.));
-       //gizmos.ray(Vec3::ZERO, transform.forward().as_vec3(), Color::srgb(0., 1., 0.));
-       gizmos.ray(Vec3::ZERO, transform.local_x().as_vec3(), Color::srgb(0., 1., 0.));
-       gizmos.ray(Vec3::ZERO, dir.xy().extend(0.), Color::srgb(0., 1., 0.));
-       //gizmos.cuboid(Transform::from_translation(target.translation).with_scale(Vec3::splat(0.1)), Color::srgb(1., 0., 0.));
-        let d_a: f32 = t0.translation.distance(t1.translation);
-        let d_b: f32 = t0.translation.distance(t1.translation);
-        let mut d_c = dir.length();
-        if (d_c > d_a + d_c) {
-            d_c = d_a + d_c;
-        }
-       // println!("{} {}", d_c, t0.translation.distance(target.translation));
-        //let mut a = ((d_c.powf(2.) + d_b.powf(2.) - d_a.powf(2.)) / 2. * d_c * d_b).acos();
-        let mut a = calc_necessary_angle(d_b, d_c, d_a);
-        let mut b: f32 = calc_necessary_angle(d_a, d_b, d_c);
-       // let mut b = calc_necessary_angle(d_a, d_b, d_c);
-        //let mut a = ((180_f32).to_radians() - b) / 2.;
-      //  println!("{} {} {} {} / {} {} {}", a, b, a.to_degrees(), b.to_degrees(), d_a, d_b, d_c);
-
-       // let mut a = calc_necessary_angle(d_a, d_b, d_c);
-        //let mut b = calc_necessary_angle(d_a, d_b, d_c);
-        if a.is_nan(){
-            a = 0.;
-        }
-        if b.is_nan() {
-           // println!("Too far");
-            b = PI;
-        }
-        a = PI/2. - a;
-        b = PI - b;
-       // b *= 2.;
-        //b = PI/2. - b;
-        //println!("{} {} {}", a.to_degrees(), b.to_degrees(), d_c);
-        //println!("{}", y.to_degrees());
-        //t0.rotation = Quat::from_euler(EulerRot::XYZ, 0., 0., 0.);
-        t0.rotation = Quat::from_euler(EulerRot::XYZ, 0.,-y, a - z);
-        t1.rotation = Quat::from_rotation_z(b);
+    for (arm_entity, arm) in arm_query.iter() {
+        for child in children_query.iter_descendants(arm_entity) {
+            let Ok((entity, skinned_mesh)) = parent_query.get(child) else {continue;};
+            let Ok([mut t0, mut t1, target, transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], target_entity, arm_entity]) else { println!("fuck"); continue; };
+            let dir = (target.translation - transform.translation);
+            let (y, z) = calc_angles(&transform, dir);
+            let d_a: f32 = t0.translation.distance(t1.translation);
+            let d_b: f32 = t0.translation.distance(t1.translation);
+            let mut d_c = dir.length();
+            if (d_c > d_a + d_c) {
+                d_c = d_a + d_c;
+            }
+            let mut a = calc_necessary_angle(d_b, d_c, d_a);
+            let mut b: f32 = calc_necessary_angle(d_a, d_b, d_c);
+            if a.is_nan(){
+                a = 0.;
+            }
+            if b.is_nan() {
+                b = PI;
+            }
+            a = PI/2. - a;
+            b = PI - b;
+            t0.rotation = Quat::from_euler(EulerRot::XYZ, 0.,-y, a - z);
+            t1.rotation = Quat::from_rotation_z(b);
+            }
     }
 }
 
