@@ -5,9 +5,14 @@ use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{se
 #[derive(Component)]
 struct Movable;
 
+enum TargetType {
+    Position(Vec3),
+    Entity(Entity),
+}
+
 #[derive(Component)]
 struct IKArm {
-    target: Entity   
+    target: TargetType
 }
 
 fn main() {
@@ -48,7 +53,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
             .load(GltfAssetLabel::Scene(0).from_asset("leg/leg.glb")),
         transform: Transform::from_xyz(0.0, 0.03, 0.0),
         ..default()
-    }, Movable, IKArm { target }));
+        }, 
+        Movable, 
+        IKArm { 
+            target: TargetType::Entity(target) 
+            //target: TargetType::Position(Vec3{x: 1., y: 0., z: 1.}) 
+        }
+    ));
 
     commands.spawn(SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),
@@ -81,8 +92,17 @@ fn joint_animation(
     for (arm_entity, arm) in arm_query.iter() {
         for child in children_query.iter_descendants(arm_entity) {
             let Ok((entity, skinned_mesh)) = parent_query.get(child) else {continue;};
-            let Ok([mut t0, mut t1, target, transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], arm.target, arm_entity]) else { println!("fuck"); continue; };
-            let dir = (target.translation - transform.translation);
+            let mut queried_entity: Entity = entity;
+            let mut target_position: Vec3 = Vec3::ZERO;
+            match arm.target {
+                TargetType::Position(target_pos) => {target_position = target_pos},
+                TargetType::Entity(target_entity) => queried_entity = target_entity,
+            }
+            let Ok([mut t0, mut t1, target, transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], queried_entity, arm_entity]) else { println!("fuck"); continue; };
+            if (queried_entity != entity) {
+                target_position = target.translation;
+            }
+            let dir = (target_position - transform.translation);
             let (y, z) = calc_angles(&transform, dir);
             let d_a: f32 = t0.translation.distance(t1.translation);
             let d_b: f32 = t0.translation.distance(t1.translation);
@@ -110,12 +130,10 @@ fn calc_angles(transform: &Transform, dir: Vec3) -> (f32, f32) {
     let y = (-transform.local_x()).xz().angle_between(dir.xz());
     let mut inbetween = dir;
     inbetween.y = 0.;
-//    let z = inbetween.angle_between(dir);
     let mut z = dir.angle_between(inbetween);
     if (dir.y < 0.) {
         z = -z;
     }
-   // let z = (transform.local_x()).xy().angle_between(dir.xy());
     return (y, z);
 }
 
@@ -123,7 +141,6 @@ fn calc_necessary_angle(a: f32, b: f32, c: f32) -> f32 {
     let top_part = a.powf(2.) + b.powf(2.) - c.powf(2.);
     let bottom_part = 2. * a * b;
     let result = (top_part / bottom_part).acos();
-    //println!("{}, {}, {}", top_part, bottom_part, result);
     return result;
 }
 
@@ -131,7 +148,6 @@ fn movable(
     mut transform_query: Query<&mut Transform, With<Movable>>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    // Iter skinned mesh entity
     for (mut movable_transform) in transform_query.iter_mut() {
         let mut vec = Vec3::ZERO;
         if keys.pressed(KeyCode::KeyW) {
