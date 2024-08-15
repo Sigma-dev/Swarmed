@@ -1,14 +1,9 @@
 use std::f32::consts::PI;
 use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
 
-pub enum TargetType {
-    Position(Vec3),
-    Entity(Entity),
-}
-
 #[derive(Component)]
 pub struct IKArm {
-    pub target: TargetType
+    pub target: Vec3
 }
 
 pub struct IKArmPlugin;
@@ -31,16 +26,8 @@ fn handle_ik(
     for (arm_entity, arm) in arm_query.iter() {
         for child in children_query.iter_descendants(arm_entity) {
             let Ok((entity, skinned_mesh)) = parent_query.get(child) else {continue;};
-            let mut queried_entity: Entity = entity;
-            let mut target_position: Vec3 = Vec3::ZERO;
-            match arm.target {
-                TargetType::Position(target_pos) => {target_position = target_pos},
-                TargetType::Entity(target_entity) => queried_entity = target_entity,
-            }
-            let Ok([mut t0, mut t1, target, transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], queried_entity, arm_entity]) else { println!("fuck"); continue; };
-            if (queried_entity != entity) {
-                target_position = target.translation;
-            }
+            let target_position: Vec3 = arm.target;
+            let Ok([mut t0, mut t1, transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], arm_entity]) else { println!("fuck"); continue; };
             let dir = (target_position - transform.translation);
             let (y, z) = calc_angles(&transform, dir);
             let d_a: f32 = t0.translation.distance(t1.translation);

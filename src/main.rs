@@ -1,6 +1,6 @@
 use std::f32::{consts::*, NAN};
 use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
-use IKArm::{IKArmPlugin, TargetType};
+use IKArm::{IKArmPlugin};
 
 mod IKArm;
 
@@ -10,7 +10,12 @@ struct Movable;
 #[derive(Component)]
 struct Leg {
     step_offset: Vec3,
-    step_distance: f32, 
+    step_distance: f32,
+    step_duration: f32,
+    step_height: f32,
+    step_start: Vec3,
+    stepping: bool,
+    step_elapsed: f32,
 }
 
 fn main() {
@@ -22,7 +27,7 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, setup)
-        .add_systems(Update, movable)
+        .add_systems(Update, (movable, handle_legs))
         .run();
 }
 
@@ -54,8 +59,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         }, 
         Movable, 
         IKArm::IKArm { 
-            target: TargetType::Entity(target) 
-            //target: TargetType::Position(Vec3{x: 1., y: 0., z: 1.}) 
+            target: Vec3{x: 1., y: 0., z: 1.}
+        },
+        Leg { 
+            step_offset: Vec3{x: 0.7, y: 0., z: 0.}, 
+            step_distance: 0.5, 
+            step_duration: 0.15,
+            step_height: 0.3,
+            stepping: false,
+            step_start: Vec3::ZERO,
+            step_elapsed: 0.
         }
     ));
 
@@ -74,6 +87,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         ..default()
     });
 
+}
+
+fn handle_legs(
+    mut leg_query: Query<(&Transform, &mut IKArm::IKArm, &mut Leg)>,
+    time: Res<Time>,
+) {
+    for (transform, mut arm, mut leg) in leg_query.iter_mut() {
+        let desired_pos = transform.translation + leg.step_offset;
+        let distance = arm.target.distance(desired_pos);
+        if (!leg.stepping) {
+            if (distance > leg.step_distance) {
+                leg.stepping = true;
+                leg.step_elapsed = 0.;
+                leg.step_start = arm.target;
+            }
+        } else {
+            let step_progress = leg.step_elapsed / leg.step_duration;
+            arm.target = leg.step_start.lerp(desired_pos, leg.step_elapsed / leg.step_duration);
+            let y_offset = (1. - ((step_progress * 2.) - 1.).abs()) * leg.step_height;
+            arm.target.y = leg.step_start.y + y_offset;
+            leg.step_elapsed += time.delta_seconds();
+            if (leg.step_elapsed >= leg.step_duration) {
+                arm.target = desired_pos;
+                leg.stepping = false;
+            }
+        }
+    }
 }
 
 fn movable(
