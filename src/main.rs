@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
             ..default()
         },
         Movable,
-        LegCreature { current_side: LegSide::None}
+        LegCreature { current_side: LegSide::None, target_height: 0.2}
     )).with_children(|parent| {
         for i in 0..2 {
             let side_mult = if (i == 0) { 1. }  else {-1.};

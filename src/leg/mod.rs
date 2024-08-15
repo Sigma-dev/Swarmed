@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
+use bevy_mod_raycast::prelude::*;
 
 use crate::IKArm;
 #[derive(Copy, Clone, PartialEq, Default)]
@@ -37,7 +38,8 @@ impl IKLeg {
 
 #[derive(Component)]
 pub struct LegCreature {
-    pub(crate) current_side: LegSide
+    pub(crate) current_side: LegSide,
+    pub target_height: f32
 }
 
 
@@ -45,7 +47,22 @@ pub struct LegPlugin;
 
 impl Plugin for LegPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (determine_side, handle_leg_creature, handle_legs).chain());
+        app.add_systems(Update, (handle_height, determine_side, handle_leg_creature, handle_legs).chain());
+    }
+}
+
+fn handle_height(
+    mut leg_creature_query: Query<(&mut Transform, &LegCreature)>,
+    mut raycast: Raycast,
+) {
+    for (mut transform, leg_creature) in leg_creature_query.iter_mut() {
+        let ray = Ray3d::new(transform.translation + Vec3::Y, Vec3::NEG_Y);
+        let hits = raycast.cast_ray(ray, &RaycastSettings::default());
+        if let Some((hit, hit_data)) = hits.first() {
+            println!("{}", hit_data.position().y);
+            transform.translation.y = transform.translation.y.lerp(hit_data.position().y, 0.01);
+        };
+
     }
 }
 
@@ -68,14 +85,12 @@ fn determine_side(
             }
         }
         if (!left_side_moving && !right_side_moving) {
-            println!("SWAP");
             if leg_creature.current_side == LegSide::Left {
                 leg_creature.current_side = LegSide::Right;
             } else {
                 leg_creature.current_side = LegSide::Left;
             }
         }
-        println!("SIDE: {}", leg_creature.current_side as i8);
     }
 }
 
@@ -84,9 +99,7 @@ fn handle_leg_creature(
     leg_creature_query: Query<(Entity, &LegCreature)>,
     children_query: Query<&Children>,
 ) {
-    println!("SETTING LEG CAN START");
     for (creature_entity, mut leg_creature) in leg_creature_query.iter() {
-        println!("CURRENT GROUP: {}", leg_creature.current_side as i8);
         for child in children_query.iter_descendants(creature_entity) {
             let Ok((mut leg)) = leg_query.get_mut(child) else {continue;};
             if (leg.leg_side == leg_creature.current_side) {
@@ -94,26 +107,27 @@ fn handle_leg_creature(
             } else {
                 leg.can_start_step = false;
             }
-            println!("{} {}",  leg.leg_side as i8,leg.can_start_step,);
         }
     }
 }
 
 fn handle_legs(
     mut leg_query: Query<(&GlobalTransform, &mut IKArm::IKArm, &mut IKLeg)>,
+    mut raycast: Raycast,
     time: Res<Time>,
 ) {
-    println!("LEGS");
-
     //let group = get_highest_distance_group(&leg_query);
     for (transform, mut arm, mut leg) in leg_query.iter_mut() {
-        let desired_pos = transform.translation() + leg.step_offset;
+        let mut desired_pos: Vec3 = transform.translation() + leg.step_offset;
+        let ray = Ray3d::new(desired_pos + Vec3::Y, Vec3::NEG_Y);
+        let hits = raycast.cast_ray(ray, &RaycastSettings::default());
+        if let Some((hit, hit_data)) = hits.first() {
+            desired_pos = hit_data.position();
+        };
+
         let distance = arm.target.distance(desired_pos);
-        println!("{} {}",  leg.leg_side as i8,leg.can_start_step,);
         if (!leg.stepping) {
-            println!("DADADADA");
             if (distance > leg.step_distance && leg.can_start_step) {
-                println!("STEP");
                 leg.stepping = true;
                 leg.step_elapsed = 0.;
                 leg.step_start = arm.target;
