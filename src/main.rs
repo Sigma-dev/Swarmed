@@ -6,10 +6,9 @@ use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{se
 struct Movable;
 
 #[derive(Component)]
-struct Target;
-
-#[derive(Component)]
-struct IKArm;
+struct IKArm {
+    target: Entity   
+}
 
 fn main() {
     App::new()
@@ -41,7 +40,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
             ..default()
         },
       //  Movable,
-        Target,
     )).id();
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
@@ -50,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
             .load(GltfAssetLabel::Scene(0).from_asset("leg/leg.glb")),
         transform: Transform::from_xyz(0.0, 0.03, 0.0),
         ..default()
-    }, Movable, IKArm));
+    }, Movable, IKArm { target }));
 
     commands.spawn(SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),
@@ -76,17 +74,14 @@ fn joint_animation(
     arm_query: Query<(Entity, &IKArm)>,
     children_query: Query<&Children>,
     parent_query: Query<(Entity, &SkinnedMesh)>,
-    movable_query: Query<Entity, With<Target>>,
     mut transform_query: Query<&mut Transform>,
     mut gizmos: Gizmos,
 
 ) {
-    let Ok((target_entity)) = movable_query.get_single() else { return; };
-    // Iter skinned mesh entity
     for (arm_entity, arm) in arm_query.iter() {
         for child in children_query.iter_descendants(arm_entity) {
             let Ok((entity, skinned_mesh)) = parent_query.get(child) else {continue;};
-            let Ok([mut t0, mut t1, target, transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], target_entity, arm_entity]) else { println!("fuck"); continue; };
+            let Ok([mut t0, mut t1, target, transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], arm.target, arm_entity]) else { println!("fuck"); continue; };
             let dir = (target.translation - transform.translation);
             let (y, z) = calc_angles(&transform, dir);
             let d_a: f32 = t0.translation.distance(t1.translation);
@@ -107,7 +102,7 @@ fn joint_animation(
             b = PI - b;
             t0.rotation = Quat::from_euler(EulerRot::XYZ, 0.,-y, a - z);
             t1.rotation = Quat::from_rotation_z(b);
-            }
+        }
     }
 }
 
