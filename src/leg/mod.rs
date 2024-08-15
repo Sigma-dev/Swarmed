@@ -52,16 +52,20 @@ impl Plugin for LegPlugin {
 }
 
 fn handle_height(
-    mut leg_creature_query: Query<(Entity, &mut Transform, &LegCreature)>,
-    mut raycast: Raycast,
+    leg_query: Query<&IKArm::IKArm>,
+    mut leg_creature_query: Query<(Entity, &mut Transform, &mut LegCreature)>,
+    children_query: Query<&Children>,
 ) {
-    for (creature_entity, mut transform, leg_creature) in leg_creature_query.iter_mut() {
-        let ray = Ray3d::new(transform.translation + Vec3::Y, Vec3::NEG_Y);
-        let hits = raycast.cast_ray(ray, &RaycastSettings { filter: &|entity| entity != creature_entity, early_exit_test: &|_| true, ..Default::default() });
-        if let Some((hit, hit_data)) = hits.first() {
-            transform.translation.y = transform.translation.y.lerp(hit_data.position().y + leg_creature.target_height, 0.05);
-        };
-
+    for (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
+        let mut sum = Vec3::ZERO;
+        let mut n = 0;
+        for child in children_query.iter_descendants(creature_entity) {
+            let Ok((mut arm)) = leg_query.get(child) else {continue;};
+            sum += arm.target;
+            n += 1;
+        }
+        let median = sum / n as f32;
+        transform.translation.y = transform.translation.y.lerp(median.y + leg_creature.target_height, 0.1);
     }
 }
 
