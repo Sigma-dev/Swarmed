@@ -1,6 +1,8 @@
 use std::f32::{consts::*, NAN};
 use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
+use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use leg::{IKLeg, LegCreature, LegPlugin, LegSide};
+use rand::distributions::Standard;
 use IKArm::{IKArmPlugin};
 
 mod IKArm;
@@ -9,6 +11,8 @@ mod leg;
 #[derive(Component)]
 struct Movable;
 
+#[derive(Component)]
+struct MEsh;
 
 fn main() {
     App::new()
@@ -18,9 +22,19 @@ fn main() {
             brightness: 750.0,
             ..default()
         })
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, ).chain())
         .add_systems(Update, (movable))
+        .observe(modify_meshes)
         .run();
+}
+
+fn modify_meshes(
+    trigger: Trigger<OnAdd, Handle<Mesh>>,
+    mut commands: Commands,
+  ) {
+    commands
+      .entity(trigger.entity())
+      .insert(NoBackfaceCulling);
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>,
@@ -101,7 +115,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
         ..Default::default()
     });
-
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,

@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
 use bevy_mod_raycast::prelude::*;
+use itertools::Itertools;
 
 use crate::IKArm;
 #[derive(Copy, Clone, PartialEq, Default)]
@@ -47,7 +48,7 @@ pub struct LegPlugin;
 
 impl Plugin for LegPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (handle_height, determine_side, handle_leg_creature, handle_legs).chain());
+        app.add_systems(Update, (handle_angle, determine_side, handle_leg_creature, handle_legs).chain());
     }
 }
 
@@ -66,6 +67,41 @@ fn handle_height(
         }
         let median = sum / n as f32;
         transform.translation.y = transform.translation.y.lerp(median.y + leg_creature.target_height, 0.1);
+    }
+}
+
+fn handle_angle(
+    mut leg_creature_query: Query<(Entity, &mut Transform, &mut LegCreature)>,
+    leg_query: Query<&IKArm::IKArm>,
+    children_query: Query<&Children>,
+) {
+    println!("Start");
+    'outer: for  (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
+        let mut vec: Vec<&IKArm::IKArm> = Vec::new();
+        for child in children_query.iter_descendants(creature_entity) {
+            let Ok((mut arm)) = leg_query.get(child) else {continue;};
+            vec.push(arm);
+        }
+        let mut normal_total = Vec3::ZERO;
+        let mut pos_total = Vec3::ZERO;
+        let mut i = 0;
+        println!("{}", vec.len());
+        for v in vec.into_iter().combinations(3) {
+            let v1 = v[0].target;
+            let v2 = v[1].target;
+            let v3 = v[2].target; 
+            if (v1 == v2 || v2 == v3 || v1.is_nan() || v2.is_nan() || v3.is_nan()) {
+                continue 'outer;
+            }
+            let (plane, pos) = InfinitePlane3d::from_points(v1, v2, v3);
+            normal_total += *plane.normal;
+            pos_total += pos;
+            i += 1;
+        }
+        let normal_average = normal_total / i as f32;
+        let pos_average = pos_total / i as f32;
+      //  transform.rotation = Transform::IDENTITY.aligned_by(Vec3::Y, normal_average, Vec3::X, transform.local_x()).rotation;
+        transform.translation.y = transform.translation.y.lerp(pos_average.y + leg_creature.target_height, 0.1);
     }
 }
 
@@ -122,11 +158,14 @@ fn handle_legs(
     //let group = get_highest_distance_group(&leg_query);
     for (transform, mut arm, mut leg) in leg_query.iter_mut() {
         let mut desired_pos: Vec3 = transform.translation() + leg.step_offset;
+        let dir = (desired_pos - transform.translation()).normalize();
         let ray = Ray3d::new(desired_pos + Vec3::Y, Vec3::NEG_Y);
+        //let ray = Ray3d::new(desired_pos, -dir);
         let hits = raycast.cast_ray(ray, &RaycastSettings::default());
         if let Some((hit, hit_data)) = hits.first() {
+         //   println!("{}", hit_data.position().y);
             desired_pos = hit_data.position();
-        };
+        }
 
         let distance = arm.target.distance(desired_pos);
         if (!leg.stepping) {
