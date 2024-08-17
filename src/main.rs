@@ -1,7 +1,7 @@
 use std::f32::{consts::*, NAN};
 use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
-use leg::{IKLeg, LegCreature, LegPlugin, LegSide};
+use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use IKArm::{IKArmPlugin};
 
@@ -42,7 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
     // Create a camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 5., -2.0)
-            .looking_at(Vec3::new(0.0, 0.5, 0.0), Vec3::Y),
+            .looking_at(Vec3::new(0.0, 0., 0.0), Vec3::Y),
         ..default()
     });
 
@@ -57,15 +57,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
     )).id();
 
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.3, 0.3, 0.3)),
-            material: materials.add(Color::srgb_u8(10, 10, 10)),
+        SpatialBundle {
             transform: Transform::from_xyz(0., 0.3, 0.0),
             ..default()
         },
         Movable,
-        LegCreature { current_side: LegSide::None, target_height: 0.2}
+        LegCreature::new(LegSide::None, 0.2)
     )).with_children(|parent| {
+
+        parent.spawn((PbrBundle {
+            mesh: meshes.add(Cuboid::new(0.3, 0.3, 0.3)),
+            material: materials.add(Color::srgb_u8(10, 10, 10)),
+            ..default()
+        },
+        LegCreatureVisual{}
+        ));
+
         for i in 0..2 {
             let side_mult = if (i == 0) { 1. }  else {-1.};
             let side = if (i == 0) { LegSide::Left }  else { LegSide::Right };

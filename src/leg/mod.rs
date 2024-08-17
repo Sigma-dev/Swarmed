@@ -40,18 +40,33 @@ impl IKLeg {
 #[derive(Component)]
 pub struct LegCreature {
     pub(crate) current_side: LegSide,
-    pub target_height: f32
+    pub target_height: f32,
+    up: Vec3,
+   // pub legs: Vec<Entity>
+}
+impl LegCreature {
+    pub fn new(
+        current_side: LegSide,
+        target_height: f32,
+      //  legs: Vec<Entity>
+    ) -> Self {
+        Self { current_side, target_height, up: Vec3::Y }
+    }
 }
 
+#[derive(Component)]
+pub struct LegCreatureVisual {
+}
 
 pub struct LegPlugin;
 
 impl Plugin for LegPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (handle_angle, determine_side, handle_leg_creature, handle_legs).chain());
+        app.add_systems(Update, (handle_height, handle_visual, determine_side, handle_leg_creature, handle_legs).chain());
     }
 }
 
+/*
 fn handle_height(
     leg_query: Query<&IKArm::IKArm>,
     mut leg_creature_query: Query<(Entity, &mut Transform, &mut LegCreature)>,
@@ -69,11 +84,28 @@ fn handle_height(
         transform.translation.y = transform.translation.y.lerp(median.y + leg_creature.target_height, 0.1);
     }
 }
+ */
 
-fn handle_angle(
+fn handle_visual(
+    leg_creature_query: Query<(Entity, &Transform, &LegCreature), Without<LegCreatureVisual>>,
+    mut creature_visual_query: Query<&mut Transform ,With<LegCreatureVisual>>,
+    children_query: Query<(&Children)>,
+) {
+    for  (creature_entity, transform, leg_creature) in leg_creature_query.iter() {
+        for (child) in children_query.iter_descendants(creature_entity) {
+            let Ok(mut visual) = creature_visual_query.get_mut(child) else { continue; };
+            //println!("{}", leg_creature.up);
+            let target = transform.aligned_by(-Vec3::Y, leg_creature.up, Vec3::X, transform.local_x());
+            visual.rotation = visual.rotation.slerp(target.rotation, 0.1);
+        }
+    }
+}
+
+fn handle_height(
     mut leg_creature_query: Query<(Entity, &mut Transform, &mut LegCreature)>,
     leg_query: Query<&IKArm::IKArm>,
     children_query: Query<&Children>,
+
 ) {
     println!("Start");
     'outer: for  (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
@@ -85,7 +117,6 @@ fn handle_angle(
         let mut normal_total = Vec3::ZERO;
         let mut pos_total = Vec3::ZERO;
         let mut i = 0;
-        println!("{}", vec.len());
         for v in vec.into_iter().combinations(3) {
             let v1 = v[0].target;
             let v2 = v[1].target;
@@ -94,14 +125,17 @@ fn handle_angle(
                 continue 'outer;
             }
             let (plane, pos) = InfinitePlane3d::from_points(v1, v2, v3);
-            normal_total += *plane.normal;
+            println!("Normal: {}", plane.normal.abs());
+            normal_total += plane.normal.abs();
             pos_total += pos;
             i += 1;
         }
         let normal_average = normal_total / i as f32;
         let pos_average = pos_total / i as f32;
-      //  transform.rotation = Transform::IDENTITY.aligned_by(Vec3::Y, normal_average, Vec3::X, transform.local_x()).rotation;
         transform.translation.y = transform.translation.y.lerp(pos_average.y + leg_creature.target_height, 0.1);
+        if (!normal_average.normalize().is_nan()) {
+            leg_creature.up = normal_average.normalize();
+        }
     }
 }
 
