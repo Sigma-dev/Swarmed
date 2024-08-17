@@ -1,5 +1,5 @@
 use std::f32::consts::PI;
-use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
+use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, reflect::Array, render::mesh::{self, skinning::SkinnedMesh}};
 use bevy_mod_raycast::prelude::*;
 use itertools::Itertools;
 
@@ -42,15 +42,15 @@ pub struct LegCreature {
     pub(crate) current_side: LegSide,
     pub target_height: f32,
     up: Vec3,
-   // pub legs: Vec<Entity>
+    pub legs_info: Vec<(Entity, Vec3)>
 }
 impl LegCreature {
     pub fn new(
         current_side: LegSide,
         target_height: f32,
-      //  legs: Vec<Entity>
+        legs_info: Vec<(Entity, Vec3)>
     ) -> Self {
-        Self { current_side, target_height, up: Vec3::Y }
+        Self { current_side, target_height, up: Vec3::Y, legs_info}
     }
 }
 
@@ -87,46 +87,36 @@ fn handle_height(
  */
 
 fn handle_visual(
-    leg_creature_query: Query<(Entity, &Transform, &LegCreature), Without<LegCreatureVisual>>,
-    mut creature_visual_query: Query<&mut Transform ,With<LegCreatureVisual>>,
+    mut leg_creature_query: Query<(Entity, &mut Transform, &LegCreature), Without<LegCreatureVisual>>,
     children_query: Query<(&Children)>,
 ) {
-    for  (creature_entity, transform, leg_creature) in leg_creature_query.iter() {
-        for (child) in children_query.iter_descendants(creature_entity) {
-            let Ok(mut visual) = creature_visual_query.get_mut(child) else { continue; };
-            //println!("{}", leg_creature.up);
-            let target = transform.aligned_by(-Vec3::Y, leg_creature.up, Vec3::X, transform.local_x());
-            visual.rotation = visual.rotation.slerp(target.rotation, 0.1);
-        }
+    for  (creature_entity, mut transform, leg_creature) in leg_creature_query.iter_mut() {
+        let target = transform.aligned_by(-Vec3::Y, leg_creature.up, Vec3::X, transform.local_x());
+        transform.rotation = transform.rotation.slerp(target.rotation, 0.1);
     }
 }
 
 fn handle_height(
     mut leg_creature_query: Query<(Entity, &mut Transform, &mut LegCreature)>,
-    leg_query: Query<&IKArm::IKArm>,
-    children_query: Query<&Children>,
+    mut leg_query: Query<(&IKArm::IKArm, &Name)>,
 
 ) {
-    println!("Start");
-    'outer: for  (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
-        let mut vec: Vec<&IKArm::IKArm> = Vec::new();
-        for child in children_query.iter_descendants(creature_entity) {
-            let Ok((mut arm)) = leg_query.get(child) else {continue;};
-            vec.push(arm);
-        }
+    'outer: for (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
         let mut normal_total = Vec3::ZERO;
         let mut pos_total = Vec3::ZERO;
         let mut i = 0;
-        for v in vec.into_iter().combinations(3) {
-            let v1 = v[0].target;
-            let v2 = v[1].target;
-            let v3 = v[2].target; 
+        for v in leg_creature.legs_info.iter().combinations(3) {
+            let legs= [v[0].0, v[1].0, v[2].0];
+            let Ok([(a, a_name), (b, b_name), (c, c_name)]) = leg_query.get_many_mut(legs) else {continue;};
+            println!("{} {} {}", a_name, b_name, c_name);
+            let v1 = a.target;
+            let v2 = b.target;
+            let v3 = c.target; 
             if (v1 == v2 || v2 == v3 || v1.is_nan() || v2.is_nan() || v3.is_nan()) {
                 continue 'outer;
             }
             let (plane, pos) = InfinitePlane3d::from_points(v1, v2, v3);
-            println!("Normal: {}", plane.normal.abs());
-            normal_total += plane.normal.abs();
+            normal_total += *plane.normal;
             pos_total += pos;
             i += 1;
         }
@@ -136,19 +126,18 @@ fn handle_height(
         if (!normal_average.normalize().is_nan()) {
             leg_creature.up = normal_average.normalize();
         }
-    }
+    };     
 }
 
 fn determine_side(
     leg_query: Query<(&IKLeg)>,
     mut leg_creature_query: Query<(Entity, &mut LegCreature)>,
-    children_query: Query<&Children>,
 ) {
     for (creature_entity, mut leg_creature) in leg_creature_query.iter_mut() {
         let mut left_side_moving = false;
         let mut right_side_moving = false;
-        for child in children_query.iter_descendants(creature_entity) {
-            let Ok((mut leg)) = leg_query.get(child) else {continue;};
+        for (leg_entity, leg_offset) in &leg_creature.legs_info {
+            let Ok((mut leg)) = leg_query.get(*leg_entity) else {continue;};
             if leg.stepping {
                 match leg.leg_side {
                     LegSide::Left => left_side_moving = true,
@@ -168,13 +157,13 @@ fn determine_side(
 }
 
 fn handle_leg_creature(
-    mut leg_query: Query<(&mut IKLeg)>,
-    leg_creature_query: Query<(Entity, &LegCreature)>,
-    children_query: Query<&Children>,
+    mut leg_query: Query<(&mut IKLeg, &mut Transform)>,
+    leg_creature_query: Query<(Entity, &LegCreature, &GlobalTransform)>,
 ) {
-    for (creature_entity, mut leg_creature) in leg_creature_query.iter() {
-        for child in children_query.iter_descendants(creature_entity) {
-            let Ok((mut leg)) = leg_query.get_mut(child) else {continue;};
+    for (creature_entity, mut leg_creature, leg_creature_transform) in leg_creature_query.iter() {
+        for (leg_entity, leg_offset) in &leg_creature.legs_info {
+            let Ok((mut leg, mut leg_transform)) = leg_query.get_mut(*leg_entity) else {continue;};
+            leg_transform.translation = leg_creature_transform.translation() + *leg_offset;
             if (leg.leg_side == leg_creature.current_side) {
                 leg.can_start_step = true;
             } else {
