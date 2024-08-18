@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
     mut materials: ResMut<Assets<StandardMaterial>>,) {
     // Create a camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 5., -2.0)
+        transform: Transform::from_xyz(-4.0, 5., -4.0)
             .looking_at(Vec3::new(0.0, 0., 0.0), Vec3::Y),
         ..default()
     });
@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
             material: materials.add(Color::srgb_u8(10, 10, 10)),
             ..default()
         },
-        Movable,
+        //Movable,
         LegCreature::new(LegSide::None, 0.2, legs_info)
     ));
 

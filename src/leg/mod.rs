@@ -42,7 +42,8 @@ pub struct LegCreature {
     pub(crate) current_side: LegSide,
     pub target_height: f32,
     up: Vec3,
-    pub legs_info: Vec<(Entity, Vec3)>
+    pub legs_info: Vec<(Entity, Vec3)>,
+    target_offset: Vec3,
 }
 impl LegCreature {
     pub fn new(
@@ -50,7 +51,7 @@ impl LegCreature {
         target_height: f32,
         legs_info: Vec<(Entity, Vec3)>
     ) -> Self {
-        Self { current_side, target_height, up: Vec3::Y, legs_info}
+        Self { current_side, target_height, up: Vec3::Y, legs_info, target_offset: Vec3::ZERO }
     }
 }
 
@@ -62,7 +63,7 @@ pub struct LegPlugin;
 
 impl Plugin for LegPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (handle_height, handle_visual, determine_side, handle_leg_creature, handle_legs).chain())
+        app.add_systems(Update, (handle_height, handle_visual, determine_side, handle_leg_creature, handle_legs, move_creature).chain())
         .observe(setup_legs);
     }
 }
@@ -95,6 +96,36 @@ fn handle_height(
     }
 }
  */
+
+fn move_creature(
+    mut creature_query: Query<&mut LegCreature>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    for (mut creature) in creature_query.iter_mut() {
+        let mut vec = Vec3::ZERO;
+        if keys.pressed(KeyCode::KeyW) {
+            vec.z += 1.0
+        }
+        if keys.pressed(KeyCode::KeyS) {
+            vec.z -= 1.0
+        }
+        if keys.pressed(KeyCode::KeyD) {
+            vec.x -= 1.0
+        }
+        if keys.pressed(KeyCode::KeyA) {
+            vec.x += 1.0
+        }
+        if keys.pressed(KeyCode::KeyQ) {
+            vec.y += 1.0
+        }
+        if keys.pressed(KeyCode::KeyE) {
+            vec.y -= 1.0
+        }
+        creature.target_offset = vec * 0.4;
+        println!("OFFSET: {}", creature.target_offset);
+
+    }
+}
 
 fn handle_visual(
     mut leg_creature_query: Query<(Entity, &mut Transform, &LegCreature), Without<LegCreatureVisual>>,
@@ -136,7 +167,9 @@ fn handle_height(
         }
         let normal_average = (normal_total / i as f32).normalize();
         let pos_average = pos_total / i as f32;
-        transform.translation.y = transform.translation.y.lerp(pos_average.y + leg_creature.target_height, 0.1);
+        //transform.translation.y = transform.translation.y.lerp(pos_average.y + leg_creature.target_height, 0.1);
+        let target = Transform::from_translation(pos_average).transform_point(Vec3::Y * leg_creature.target_height);
+        transform.translation = transform.translation.lerp(target, 0.1);
         if (!normal_average.is_nan()) {
             println!("NEW NORMAL: {}", normal_average);
             leg_creature.up = normal_average;
@@ -192,6 +225,7 @@ fn handle_legs(
     leg_creature_query: Query<(Entity, &LegCreature, &GlobalTransform)>,
     mut leg_query: Query<(&GlobalTransform, &mut IKArm::IKArm, &mut IKLeg)>,
     mut raycast: Raycast,
+    mut gizmos: Gizmos,
     time: Res<Time>,
 ) {
     //let group = get_highest_distance_group(&leg_query);
@@ -200,13 +234,18 @@ fn handle_legs(
         for (leg_entity, leg_offset) in &leg_creature.legs_info {
             let Ok((transform,mut arm, mut leg)) = leg_query.get_mut(*leg_entity) else {continue;};
             //let mut desired_pos: Vec3 = transform.translation() + leg.step_offset;
-            let mut desired_pos: Vec3 = leg_creature_transform.transform_point(*leg_offset + leg.step_offset);
+            let new_pos = leg_creature_transform.transform_point(leg_creature.target_offset);
+            let new_diff = new_pos - leg_creature_transform.translation();
+            //let target_transform = *leg_creature_transform;
+           // let target_transform = target_transform.compute_transform() +
+            let mut desired_pos: Vec3 = leg_creature_transform.transform_point(new_diff + *leg_offset + leg.step_offset);
             //println!("actual: {}, new: {}, offset: {}", desired_pos, new_desired_pos, leg.step_offset);
             //println!("old: {}, new: {}, offset: {}", old_desired_pos, desired_pos, leg.step_offset);
-            let dir = (desired_pos - transform.translation()).normalize();
-            let ray = Ray3d::new(desired_pos + Vec3::Y, Vec3::NEG_Y);
-            //let ray = Ray3d::new(leg_creature_transform.translation(), dir);
-            let hits = raycast.cast_ray(ray, &RaycastSettings::default().with_filter(&|entity| entity != creature_entity && entity != *leg_entity));
+            let origin = (leg_creature_transform.transform_point(Vec3::Y * 1.));
+            let dir = (desired_pos - origin).normalize();
+            //let ray = Ray3d::new(desired_pos + Vec3::Y, Vec3::NEG_Y);
+            let ray = Ray3d::new(origin, dir);
+            let hits = raycast.debug_cast_ray(ray, &RaycastSettings::default().with_filter(&|entity| entity != creature_entity && entity != *leg_entity), &mut gizmos);
             if let Some((hit, hit_data)) = hits.first() {
             //   println!("{}", hit_data.position().y);
                 desired_pos = hit_data.position();
