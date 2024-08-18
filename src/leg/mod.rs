@@ -3,7 +3,7 @@ use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, reflect::Array, r
 use bevy_mod_raycast::prelude::*;
 use itertools::Itertools;
 
-use crate::IKArm;
+use crate::{leg, IKArm};
 #[derive(Copy, Clone, PartialEq, Default)]
 pub enum LegSide {
     Left,
@@ -62,8 +62,18 @@ pub struct LegPlugin;
 
 impl Plugin for LegPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (handle_height, handle_visual, determine_side, handle_leg_creature, handle_legs).chain());
+        app.add_systems(Update, (handle_height, handle_visual, determine_side, handle_leg_creature, handle_legs).chain())
+        .observe(setup_legs);
     }
+}
+
+fn setup_legs(
+    trigger: Trigger<OnAdd, IKLeg>,
+    mut leg_query: Query<(&GlobalTransform, &mut IKArm::IKArm, &IKLeg)>
+  ) {
+    let Ok((transform, mut arm, leg)) = leg_query.get_mut(trigger.entity()) else {return;};
+    arm.target = transform.translation() + leg.step_offset;
+    println!("SETUP LEG");
 }
 
 /*
@@ -91,8 +101,11 @@ fn handle_visual(
     children_query: Query<(&Children)>,
 ) {
     for  (creature_entity, mut transform, leg_creature) in leg_creature_query.iter_mut() {
-        let target = transform.aligned_by(-Vec3::Y, leg_creature.up, Vec3::X, transform.local_x());
-        transform.rotation = transform.rotation.slerp(target.rotation, 0.1);
+        let target = transform.aligned_by(Vec3::Y, leg_creature.up, Vec3::X, transform.local_x());
+        transform.rotation = transform.rotation.slerp(target.rotation, 0.05);
+        let (x, y, z) = transform.rotation.to_euler(EulerRot::XYZ);
+        let (a, b, c) = target.rotation.to_euler(EulerRot::XYZ);
+        println!("normal: {}, rota: {}, target: {}", leg_creature.up, Vec3::new(x.to_degrees(), y.to_degrees(), z.to_degrees()), Vec3::new(a.to_degrees(), b.to_degrees(), c.to_degrees()));
     }
 }
 
@@ -101,6 +114,7 @@ fn handle_height(
     mut leg_query: Query<(&IKArm::IKArm, &Name)>,
 
 ) {
+    println!("Start rota");
     'outer: for (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
         let mut normal_total = Vec3::ZERO;
         let mut pos_total = Vec3::ZERO;
@@ -120,11 +134,12 @@ fn handle_height(
             pos_total += pos;
             i += 1;
         }
-        let normal_average = normal_total / i as f32;
+        let normal_average = (normal_total / i as f32).normalize();
         let pos_average = pos_total / i as f32;
         transform.translation.y = transform.translation.y.lerp(pos_average.y + leg_creature.target_height, 0.1);
-        if (!normal_average.normalize().is_nan()) {
-            leg_creature.up = normal_average.normalize();
+        if (!normal_average.is_nan()) {
+            println!("NEW NORMAL: {}", normal_average);
+            leg_creature.up = normal_average;
         }
     };     
 }
@@ -174,38 +189,46 @@ fn handle_leg_creature(
 }
 
 fn handle_legs(
+    leg_creature_query: Query<(Entity, &LegCreature, &GlobalTransform)>,
     mut leg_query: Query<(&GlobalTransform, &mut IKArm::IKArm, &mut IKLeg)>,
     mut raycast: Raycast,
     time: Res<Time>,
 ) {
     //let group = get_highest_distance_group(&leg_query);
-    for (transform, mut arm, mut leg) in leg_query.iter_mut() {
-        let mut desired_pos: Vec3 = transform.translation() + leg.step_offset;
-        let dir = (desired_pos - transform.translation()).normalize();
-        let ray = Ray3d::new(desired_pos + Vec3::Y, Vec3::NEG_Y);
-        //let ray = Ray3d::new(desired_pos, -dir);
-        let hits = raycast.cast_ray(ray, &RaycastSettings::default());
-        if let Some((hit, hit_data)) = hits.first() {
-         //   println!("{}", hit_data.position().y);
-            desired_pos = hit_data.position();
-        }
-
-        let distance = arm.target.distance(desired_pos);
-        if (!leg.stepping) {
-            if (distance > leg.step_distance && leg.can_start_step) {
-                leg.stepping = true;
-                leg.step_elapsed = 0.;
-                leg.step_start = arm.target;
+    for (creature_entity, mut leg_creature, leg_creature_transform) in leg_creature_query.iter() {
+        println!("Start: {}", leg_creature_transform.translation());
+        for (leg_entity, leg_offset) in &leg_creature.legs_info {
+            let Ok((transform,mut arm, mut leg)) = leg_query.get_mut(*leg_entity) else {continue;};
+            //let mut desired_pos: Vec3 = transform.translation() + leg.step_offset;
+            let mut desired_pos: Vec3 = leg_creature_transform.transform_point(*leg_offset + leg.step_offset);
+            //println!("actual: {}, new: {}, offset: {}", desired_pos, new_desired_pos, leg.step_offset);
+            //println!("old: {}, new: {}, offset: {}", old_desired_pos, desired_pos, leg.step_offset);
+            let dir = (desired_pos - transform.translation()).normalize();
+            let ray = Ray3d::new(desired_pos + Vec3::Y, Vec3::NEG_Y);
+            //let ray = Ray3d::new(leg_creature_transform.translation(), dir);
+            let hits = raycast.cast_ray(ray, &RaycastSettings::default().with_filter(&|entity| entity != creature_entity && entity != *leg_entity));
+            if let Some((hit, hit_data)) = hits.first() {
+            //   println!("{}", hit_data.position().y);
+                desired_pos = hit_data.position();
             }
-        } else {
-            let step_progress = leg.step_elapsed / leg.step_duration;
-            arm.target = leg.step_start.lerp(desired_pos, leg.step_elapsed / leg.step_duration);
-            let y_offset = (1. - ((step_progress * 2.) - 1.).abs()) * leg.step_height;
-            arm.target.y = leg.step_start.y + y_offset;
-            leg.step_elapsed += time.delta_seconds();
-            if (leg.step_elapsed >= leg.step_duration) {
-                arm.target = desired_pos;
-                leg.stepping = false;
+
+            let distance = arm.target.distance(desired_pos);
+            if (!leg.stepping) {
+                if (distance > leg.step_distance && leg.can_start_step) {
+                    leg.stepping = true;
+                    leg.step_elapsed = 0.;
+                    leg.step_start = arm.target;
+                }
+            } else {
+                let step_progress = leg.step_elapsed / leg.step_duration;
+                arm.target = leg.step_start.lerp(desired_pos, leg.step_elapsed / leg.step_duration);
+                let y_offset = (1. - ((step_progress * 2.) - 1.).abs()) * leg.step_height;
+                arm.target.y = leg.step_start.y + y_offset;
+                leg.step_elapsed += time.delta_seconds();
+                if (leg.step_elapsed >= leg.step_duration) {
+                    arm.target = desired_pos;
+                    leg.stepping = false;
+                }
             }
         }
     }
