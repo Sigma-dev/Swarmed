@@ -56,9 +56,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         Movable,
     )).id();
 
-    spawn_test_arm(&mut commands, &asset_server, target);
+    //spawn_test_arm(&mut commands, &asset_server, target);
 
-    /*
     let legs_info: Vec<(Entity, Vec3)> = spawn_legs(&mut commands, &asset_server);
 
     commands.spawn((
@@ -71,7 +70,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         //Movable,
         LegCreature::new(LegSide::None, 0.2, legs_info)
     ));
- */
         
     commands.spawn(SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),
