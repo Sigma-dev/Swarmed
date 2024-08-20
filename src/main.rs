@@ -3,7 +3,7 @@ use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{se
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
-use IKArm::{IKArmPlugin};
+use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;
 mod leg;
@@ -24,7 +24,7 @@ fn main() {
         })
         .add_systems(Startup, (setup, ).chain())
         .add_systems(Update, (movable))
-        .observe(modify_meshes)
+       // .observe(modify_meshes)
         .run();
 }
 
@@ -50,12 +50,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         PbrBundle {
             mesh: meshes.add(Cuboid::new(0.1, 0.1, 0.1)),
             material: materials.add(Color::srgb_u8(124, 144, 255)),
-            transform: Transform::from_xyz(0.85, 0.0, 0.0),
+            transform: Transform::from_xyz(-0.5, 0., 0.),
             ..default()
         },
-      //  Movable,
+        Movable,
     )).id();
 
+    spawn_test_arm(&mut commands, &asset_server, target);
+
+    /*
     let legs_info: Vec<(Entity, Vec3)> = spawn_legs(&mut commands, &asset_server);
 
     commands.spawn((
@@ -68,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         //Movable,
         LegCreature::new(LegSide::None, 0.2, legs_info)
     ));
-
+ */
         
     commands.spawn(SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),
@@ -84,6 +87,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         ..default()
     });
 
+}
+
+
+fn spawn_test_arm(
+    mut commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    target: Entity,
+) {
+    commands.spawn((SceneBundle {
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("leg/leg.glb")),
+        ..default()
+        }, 
+        IKArm::IKArm { 
+            target: Vec3{x: 1., y: 0., z: 1.},
+            up: Vec3::Y
+        },
+        Name::new("Arm"),
+        IKArmTarget {target}
+    )
+    );
 }
 
 fn spawn_legs(
@@ -109,7 +133,8 @@ fn spawn_legs(
                 ..default()
                 }, 
                 IKArm::IKArm { 
-                    target: Vec3{x: 1., y: 0., z: 1.}
+                    target: Vec3{x: 1., y: 0., z: 1.},
+                    up: Vec3::Y
                 },
                 IKLeg::new(
                     Vec3{x: 0.5 * side_mult, y: -0.1, z: 0.35 * front_or_back_mult }, 

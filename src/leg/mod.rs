@@ -145,7 +145,6 @@ fn handle_height(
     mut leg_query: Query<(&IKArm::IKArm, &Name)>,
 
 ) {
-    println!("Start rota");
     'outer: for (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
         let mut normal_total = Vec3::ZERO;
         let mut pos_total = Vec3::ZERO;
