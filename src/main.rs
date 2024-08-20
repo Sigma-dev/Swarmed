@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
     mut materials: ResMut<Assets<StandardMaterial>>,) {
     // Create a camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-4.0, 5., -4.0)
+        transform: Transform::from_xyz(-6.0, 5., -6.0)
             .looking_at(Vec3::new(0.0, 0., 0.0), Vec3::Y),
         ..default()
     });

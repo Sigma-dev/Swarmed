@@ -1,5 +1,5 @@
 use std::f32::consts::PI;
-use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, reflect::Array, render::mesh::{self, skinning::SkinnedMesh}};
+use bevy::{color::palettes::css::BLACK, math::{NormedVectorSpace, VectorSpace}, prelude::*, reflect::Array, render::mesh::{self, skinning::SkinnedMesh}};
 use bevy_mod_raycast::prelude::*;
 use itertools::Itertools;
 
@@ -122,7 +122,7 @@ fn move_creature(
             vec.y -= 1.0
         }
         creature.target_offset = vec * 0.4;
-        println!("OFFSET: {}", creature.target_offset);
+        //println!("OFFSET: {}", creature.target_offset);
 
     }
 }
@@ -136,14 +136,14 @@ fn handle_visual(
         transform.rotation = transform.rotation.slerp(target.rotation, 0.05);
         let (x, y, z) = transform.rotation.to_euler(EulerRot::XYZ);
         let (a, b, c) = target.rotation.to_euler(EulerRot::XYZ);
-        println!("normal: {}, rota: {}, target: {}", leg_creature.up, Vec3::new(x.to_degrees(), y.to_degrees(), z.to_degrees()), Vec3::new(a.to_degrees(), b.to_degrees(), c.to_degrees()));
+        //println!("normal: {}, rota: {}, target: {}", leg_creature.up, Vec3::new(x.to_degrees(), y.to_degrees(), z.to_degrees()), Vec3::new(a.to_degrees(), b.to_degrees(), c.to_degrees()));
     }
 }
 
 fn handle_height(
     mut leg_creature_query: Query<(Entity, &mut Transform, &mut LegCreature)>,
     mut leg_query: Query<(&IKArm::IKArm, &Name)>,
-
+    mut gizmos: Gizmos,
 ) {
     'outer: for (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
         let mut normal_total = Vec3::ZERO;
@@ -152,7 +152,7 @@ fn handle_height(
         for v in leg_creature.legs_info.iter().combinations(3) {
             let legs= [v[0].0, v[1].0, v[2].0];
             let Ok([(a, a_name), (b, b_name), (c, c_name)]) = leg_query.get_many_mut(legs) else {continue;};
-            println!("{} {} {}", a_name, b_name, c_name);
+            //println!("{} {} {}", a_name, b_name, c_name);
             let v1 = a.target;
             let v2 = b.target;
             let v3 = c.target; 
@@ -167,10 +167,14 @@ fn handle_height(
         let normal_average = (normal_total / i as f32).normalize();
         let pos_average = pos_total / i as f32;
         //transform.translation.y = transform.translation.y.lerp(pos_average.y + leg_creature.target_height, 0.1);
-        let target = Transform::from_translation(pos_average).transform_point(Vec3::Y * leg_creature.target_height);
+        let mut target_transform = *transform;
+        target_transform.translation = pos_average;
+
+        let target = target_transform.transform_point(Vec3::Y * leg_creature.target_height);
+       // gizmos.line(transform.translation, transform.transform_point(Vec3::Y * leg_creature.target_height * 10.), BLACK);
         transform.translation = transform.translation.lerp(target, 0.1);
+        println!("{}", transform.translation);
         if (!normal_average.is_nan()) {
-            println!("NEW NORMAL: {}", normal_average);
             leg_creature.up = normal_average;
         }
     };     
@@ -229,25 +233,37 @@ fn handle_legs(
 ) {
     //let group = get_highest_distance_group(&leg_query);
     for (creature_entity, mut leg_creature, leg_creature_transform) in leg_creature_query.iter() {
-        println!("Start: {}", leg_creature_transform.translation());
         for (leg_entity, leg_offset) in &leg_creature.legs_info {
             let Ok((transform,mut arm, mut leg)) = leg_query.get_mut(*leg_entity) else {continue;};
             //let mut desired_pos: Vec3 = transform.translation() + leg.step_offset;
+            let mut custom = Transform::from(*leg_creature_transform);
             let new_pos = leg_creature_transform.transform_point(leg_creature.target_offset);
             let new_diff = new_pos - leg_creature_transform.translation();
+            gizmos.line(leg_creature_transform.translation(), leg_creature_transform.translation() + new_diff * 2., Color::linear_rgb(1., 0., 0.));
             //let target_transform = *leg_creature_transform;
            // let target_transform = target_transform.compute_transform() +
-            let mut desired_pos: Vec3 = leg_creature_transform.transform_point(new_diff + *leg_offset + leg.step_offset);
+            let mut desired_pos: Vec3 = leg_creature_transform.transform_point(*leg_offset + leg.step_offset) + new_diff;
+            custom.translation = desired_pos;
+            custom.translation = custom.transform_point(Vec3::Y * 1.);
+            custom.translation -= (custom.translation - leg_creature_transform.translation()).normalize() / 5.;
             //println!("actual: {}, new: {}, offset: {}", desired_pos, new_desired_pos, leg.step_offset);
             //println!("old: {}, new: {}, offset: {}", old_desired_pos, desired_pos, leg.step_offset);
-            let origin = (leg_creature_transform.transform_point(Vec3::Y * 1.));
+            let mut origin = (leg_creature_transform.transform_point(Vec3::Y * 1.));
+            origin = custom.translation;
             let dir = (desired_pos - origin).normalize();
             //let ray = Ray3d::new(desired_pos + Vec3::Y, Vec3::NEG_Y);
             let ray = Ray3d::new(origin, dir);
             let hits = raycast.debug_cast_ray(ray, &RaycastSettings::default().with_filter(&|entity| entity != creature_entity && entity != *leg_entity), &mut gizmos);
             if let Some((hit, hit_data)) = hits.first() {
             //   println!("{}", hit_data.position().y);
-                desired_pos = hit_data.position();
+                if (hit_data.distance() < 2.) {
+                    arm.up = hit_data.normal();
+                    desired_pos = hit_data.position();
+                } else {
+                    desired_pos = arm.target
+                }
+            } else {
+                desired_pos = arm.target;
             }
 
             let distance = arm.target.distance(desired_pos);
@@ -265,6 +281,7 @@ fn handle_legs(
                 leg.step_elapsed += time.delta_seconds();
                 if (leg.step_elapsed >= leg.step_duration) {
                     arm.target = desired_pos;
+
                     leg.stepping = false;
                 }
             }

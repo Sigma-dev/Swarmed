@@ -92,10 +92,10 @@ fn handle_ik(
                 let sg = calculate_correction(middle, knee_transform.translation(), arm.up, dir);
                 
                 //println!("Dot: {}", dot);
-                println!("SG: {}", sg.to_degrees());
+             //   println!("SG: {}", sg.to_degrees());
                 
                 let n = 90_f32.to_radians();
-                transform_params.p1().get_mut(skinned_mesh.joints[0]).unwrap().rotate_axis( Dir3::from_xyz(dir.x, dir.y, dir.z).unwrap(), 0_f32.lerp(signed_angle, 0.01)); // we already verified this exists above
+                transform_params.p1().get_mut(skinned_mesh.joints[0]).unwrap().rotate_axis( Dir3::from_xyz(dir.x, dir.y, dir.z).unwrap(), 0_f32.lerp(signed_angle, 1.)); // we already verified this exists above
             };
             if keys.pressed(KeyCode::KeyB) {
                 //println!("FIRST");
