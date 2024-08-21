@@ -74,7 +74,7 @@ fn setup_legs(
   ) {
     let Ok((transform, mut arm, leg)) = leg_query.get_mut(trigger.entity()) else {return;};
     arm.target = transform.translation() + leg.step_offset;
-    println!("SETUP LEG");
+    //println!("SETUP LEG");
 }
 
 /*
@@ -290,7 +290,7 @@ fn handle_legs(
  */
 
             let distance = arm.target.distance(desired_pos);
-            println!("{}", distance);
+            //println!("{}", distance);
             if (!leg.stepping) {
                 if (distance > leg.step_distance && leg.can_start_step) {
                     leg.stepping = true;
@@ -338,7 +338,7 @@ fn find_step(
             return Some(hit_data.position());
         }
     }
-    println!("Found nothing");
+    //println!("Found nothing");
     return None;
 }
 
