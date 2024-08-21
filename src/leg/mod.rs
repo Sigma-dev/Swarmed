@@ -173,7 +173,7 @@ fn handle_height(
         let target = target_transform.transform_point(Vec3::Y * leg_creature.target_height);
        // gizmos.line(transform.translation, transform.transform_point(Vec3::Y * leg_creature.target_height * 10.), BLACK);
         transform.translation = transform.translation.lerp(target, 0.1);
-        println!("{}", transform.translation);
+      //  println!("{}", transform.translation);
         if (!normal_average.is_nan()) {
             leg_creature.up = normal_average;
         }
@@ -243,17 +243,20 @@ fn handle_legs(
             //let target_transform = *leg_creature_transform;
            // let target_transform = target_transform.compute_transform() +
             let mut desired_pos: Vec3 = leg_creature_transform.transform_point(*leg_offset + leg.step_offset) + new_diff;
+            /* 
             custom.translation = desired_pos;
             custom.translation = custom.transform_point(Vec3::Y * 1.);
-            custom.translation -= (custom.translation - leg_creature_transform.translation()).normalize() / 5.;
+            //custom.translation -= (custom.translation - leg_creature_transform.translation()).normalize() / 2.;
             //println!("actual: {}, new: {}, offset: {}", desired_pos, new_desired_pos, leg.step_offset);
             //println!("old: {}, new: {}, offset: {}", old_desired_pos, desired_pos, leg.step_offset);
-            let mut origin = (leg_creature_transform.transform_point(Vec3::Y * 1.));
-            origin = custom.translation;
+            //let mut origin = (leg_creature_transform.transform_point(Vec3::Y * 1.));
+            let origin = custom.translation - (custom.translation - leg_creature_transform.translation()).normalize() / 2.;
+            let origin2 = custom.translation + (custom.translation - leg_creature_transform.translation()).normalize() / 2.;
             let dir = (desired_pos - origin).normalize();
             //let ray = Ray3d::new(desired_pos + Vec3::Y, Vec3::NEG_Y);
             let ray = Ray3d::new(origin, dir);
-            let hits = raycast.debug_cast_ray(ray, &RaycastSettings::default().with_filter(&|entity| entity != creature_entity && entity != *leg_entity), &mut gizmos);
+            let ray2 = Ray3d::new(origin2, (desired_pos - origin2).normalize());
+            let hits: &[(Entity, IntersectionData)] = raycast.debug_cast_ray(ray, &RaycastSettings::default().with_filter(&|entity| entity != creature_entity && entity != *leg_entity), &mut gizmos);
             if let Some((hit, hit_data)) = hits.first() {
             //   println!("{}", hit_data.position().y);
                 if (hit_data.distance() < 2.) {
@@ -265,8 +268,29 @@ fn handle_legs(
             } else {
                 desired_pos = arm.target;
             }
+            let hits2: &[(Entity, IntersectionData)] = raycast.debug_cast_ray(ray2, &RaycastSettings::default().with_filter(&|entity| entity != creature_entity && entity != *leg_entity), &mut gizmos);
+            */
+            if let Some(pos) = find_step(Transform::from(*leg_creature_transform), desired_pos, &mut raycast, RaycastSettings::default().with_filter(&|entity| entity != creature_entity && entity != *leg_entity), &mut gizmos) {
+                desired_pos = pos;
+            } else {
+                desired_pos = arm.target;
+            }
+            /*
+            if let Some((hit, hit_data)) = hits2.first() {
+                //   println!("{}", hit_data.position().y);
+                    if (hit_data.distance() < 2.) {
+                        arm.up = hit_data.normal();
+                        desired_pos = hit_data.position();
+                    } else {
+                        desired_pos = arm.target
+                    }
+                } else {
+                    desired_pos = arm.target;
+                }
+ */
 
             let distance = arm.target.distance(desired_pos);
+            println!("{}", distance);
             if (!leg.stepping) {
                 if (distance > leg.step_distance && leg.can_start_step) {
                     leg.stepping = true;
@@ -287,6 +311,35 @@ fn handle_legs(
             }
         }
     }
+}
+
+fn find_step(
+    transform: Transform,
+    desired_pos: Vec3,
+    raycast: &mut Raycast,
+    raycast_settings: RaycastSettings,
+    mut gizmos: &mut Gizmos
+) -> Option<Vec3> {
+    let mut custom = Transform::from(transform);
+    custom.translation = desired_pos;
+    custom.translation = custom.transform_point(Vec3::Y * 1.);
+    let origin = custom.translation - (custom.translation - transform.translation).normalize() * 0.75;
+    let origin2 = custom.translation + (custom.translation - transform.translation).normalize() * 1.5;
+    let ray = Ray3d::new(origin, (desired_pos - origin).normalize());
+    let ray2 = Ray3d::new(origin2, (desired_pos - origin2).normalize());
+    raycast.debug_cast_ray(ray2, &raycast_settings, &mut gizmos);
+    if let Some((hit, hit_data)) = raycast.debug_cast_ray(ray, &raycast_settings, &mut gizmos).first() {
+        if (hit_data.distance() < 1.5) {
+            return Some(hit_data.position());
+        }
+    }
+    if let Some((hit, hit_data)) = raycast.debug_cast_ray(ray2, &raycast_settings, &mut gizmos).first() {
+        if (hit_data.distance() < 4.) {
+            return Some(hit_data.position());
+        }
+    }
+    println!("Found nothing");
+    return None;
 }
 
 fn get_highest_distance_group(

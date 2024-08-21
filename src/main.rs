@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
     mut materials: ResMut<Assets<StandardMaterial>>,) {
     // Create a camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-6.0, 5., -6.0)
+        transform: Transform::from_xyz(-7.0, 7., -7.0)
             .looking_at(Vec3::new(0.0, 0., 0.0), Vec3::Y),
         ..default()
     });
@@ -136,7 +136,7 @@ fn spawn_legs(
                 },
                 IKLeg::new(
                     Vec3{x: 0.5 * side_mult, y: -0.1, z: 0.35 * front_or_back_mult }, 
-                    0.35, 
+                    0.1, 
                     0.15,
                     0.3,
                     side3,
