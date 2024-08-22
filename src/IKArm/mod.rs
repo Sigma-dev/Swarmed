@@ -81,8 +81,8 @@ fn handle_ik(
 
             if let Ok(updated_knee_transform) = transform_params.p0().compute_global_transform(skinned_mesh.joints[1]) {
                 let knee_vec = (updated_knee_transform.translation() - middle).normalize();
-                gizmos.line(middle, middle+ knee_vec, Color::WHITE);
-                gizmos.line(middle, middle+ arm.up, Color::WHITE);
+                //gizmos.line(middle, middle+ knee_vec, Color::WHITE);
+                //gizmos.line(middle, middle+ arm.up, Color::WHITE);
                 //println!("{}", knee_vec.dot(arm.up).acos().to_degrees());
                 //println!("{}", knee_vec.angle_between(arm.up).to_degrees());
                 let rotation_arc = Quat::from_rotation_arc( arm.up, knee_vec);

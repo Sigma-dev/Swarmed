@@ -239,7 +239,7 @@ fn handle_legs(
             let mut custom = Transform::from(*leg_creature_transform);
             let new_pos = leg_creature_transform.transform_point(leg_creature.target_offset);
             let new_diff = new_pos - leg_creature_transform.translation();
-            gizmos.line(leg_creature_transform.translation(), leg_creature_transform.translation() + new_diff * 2., Color::linear_rgb(1., 0., 0.));
+            //gizmos.line(leg_creature_transform.translation(), leg_creature_transform.translation() + new_diff * 2., Color::linear_rgb(1., 0., 0.));
             //let target_transform = *leg_creature_transform;
            // let target_transform = target_transform.compute_transform() +
             let mut desired_pos: Vec3 = leg_creature_transform.transform_point(*leg_offset + leg.step_offset) + new_diff;
@@ -327,18 +327,45 @@ fn find_step(
     let origin2 = custom.translation + (custom.translation - transform.translation).normalize() * 1.5;
     let ray = Ray3d::new(origin, (desired_pos - origin).normalize());
     let ray2 = Ray3d::new(origin2, (desired_pos - origin2).normalize());
-    raycast.debug_cast_ray(ray2, &raycast_settings, &mut gizmos);
-    if let Some((hit, hit_data)) = raycast.debug_cast_ray(ray, &raycast_settings, &mut gizmos).first() {
+    //raycast.debug_cast_ray(ray2, &raycast_settings, &mut gizmos);
+    let hit1 = do_raycast(raycast, ray, &raycast_settings, 1.5, None);
+    let hit2 = do_raycast(raycast, ray2, &raycast_settings, 4., None);
+    if hit1.is_some() {
+        return hit1;
+    } else if hit2.is_some() {
+        return hit2
+    }
+    /* 
+    if let Some((hit, hit_data)) = raycast.cast_ray(ray, &raycast_settings).first() {
         if (hit_data.distance() < 1.5) {
             return Some(hit_data.position());
         }
     }
-    if let Some((hit, hit_data)) = raycast.debug_cast_ray(ray2, &raycast_settings, &mut gizmos).first() {
+    if let Some((hit, hit_data)) = raycast.cast_ray(ray2, &raycast_settings).first() {
         if (hit_data.distance() < 4.) {
             return Some(hit_data.position());
         }
     }
+    */
     //println!("Found nothing");
+    return None;
+}
+
+fn do_raycast(raycast: &mut Raycast, ray: Ray3d, raycast_settings: &RaycastSettings, range: f32, gizmos_option: Option<&mut Gizmos>) -> Option<Vec3> {
+    if let Some(gizmos) = gizmos_option {
+        if let Some((hit, hit_data)) = raycast.debug_cast_ray(ray, &raycast_settings,gizmos).first() {
+            if (hit_data.distance() < range) {
+                return Some(hit_data.position());
+            }
+        }
+    } else {
+        if let Some((hit, hit_data)) = raycast.cast_ray(ray, &raycast_settings).first() {
+            if (hit_data.distance() < range) {
+                return Some(hit_data.position());
+            }
+        }
+    }
+    
     return None;
 }
 
