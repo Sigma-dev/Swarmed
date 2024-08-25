@@ -12,8 +12,11 @@ rand = "0.8"
 bevy_mod_raycast = "0.18.0"
 itertools = "0.13.0"
 bevy-steamworks = { git = "https://github.com/QueenOfSquiggles/bevy_steamworks", version = "0.11", features = ["serde"] }
+steamworks = { git = "https://github.com/Noxime/steamworks-rs.git", tag="v0.11.0"}
 flume = "0.11.0"
 bevy_egui = "0.29.0"
+serde = "1.0.209"
+serde-binary = "0.5.0"
 
 [workspace]
 resolver = "2"
