@@ -2,6 +2,7 @@ use std::f32::{consts::*, NAN};
 use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
+use flume::{Receiver, Sender};
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::spawn_spider;
@@ -17,12 +18,25 @@ struct Movable;
 #[derive(Resource)]
 struct NetworkClient {
     id: SteamId,
-    current_lobby: Option<LobbyId>
+    lobby_status: LobbyStatus
+}
+
+#[derive(PartialEq)]
+enum LobbyStatus {
+    InLobby(LobbyId),
+    OutOfLobby
+}
+
+
+#[derive(Resource)]
+struct LobbyIdCallbackChannel {
+    tx: Sender<LobbyId>,
+    rx: Receiver<LobbyId>
 }
 
 fn lobby_joined(client: &mut ResMut<NetworkClient>, lobby: LobbyId) {
     println!("Lobby joined: {}", lobby.raw());
-    client.current_lobby = Some(lobby)
+    client.lobby_status = LobbyStatus::InLobby(lobby)
 }
 
 fn send_message(steam_client: &Res<Client>, lobby_id: LobbyId, data: i32) {
@@ -34,31 +48,39 @@ fn send_message(steam_client: &Res<Client>, lobby_id: LobbyId, data: i32) {
 fn steam_system(
     steam_client: Res<Client>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut client: ResMut<NetworkClient>
+    mut client: ResMut<NetworkClient>,
+    channel: Res<LobbyIdCallbackChannel>
 ) {
-    if (keys.just_pressed(KeyCode::KeyC)) {
-        println!("HERE");
-        steam_client.matchmaking().create_lobby(
-            LobbyType::FriendsOnly,
-            2,
-            |r| { 
-                match r {
-                    Ok(lobby_id) => println!("YES: {}", lobby_id.raw()),
-                    Err(e) => println!("NO: {}", e),
+    let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (channel.tx.clone(), channel.rx.clone());
+    if keys.just_pressed(KeyCode::KeyC) {
+        if client.lobby_status != LobbyStatus::OutOfLobby { return; };
+        steam_client.matchmaking().create_lobby(LobbyType::Public, 2, move |res| {
+            if let Ok(lobby_id) = res {
+                println!("a {}", res.unwrap().raw());
+                match tx.send(lobby_id) {
+                    Ok(_) => {}
+                    Err(_) => {
+                        println!("send err")
+                    }
                 }
-            });
-        return;
+            }
+        });
     }
     else if (keys.just_pressed(KeyCode::KeyV)) {
         println!("?");
-        let Some(lobby) = client.current_lobby else {return; };
+        let LobbyStatus::InLobby(lobby) = client.lobby_status else {return; };
         println!("Leave");
         steam_client.matchmaking().leave_lobby(lobby)
     }
     else if (keys.just_pressed(KeyCode::KeyT)) {
-        if let Some(lobby_id) = client.current_lobby {
+        if let LobbyStatus::InLobby(lobby_id) = client.lobby_status {
             send_message(&steam_client, lobby_id, 4);
         }
+    }
+    if let Ok(lobby_id) = rx.try_recv() {
+        //game_state.set(ClientState::InLobby);
+        client.lobby_status = LobbyStatus::InLobby(lobby_id);
+        println!("Received: {}", lobby_id.raw() as u32);
     }
 }
 
@@ -69,7 +91,7 @@ fn steam_start(
     println!("Connected: {}", steam_client.user().steam_id().raw());
     commands.insert_resource(NetworkClient {
         id: steam_client.user().steam_id(),
-        current_lobby: None 
+        lobby_status: LobbyStatus::OutOfLobby 
     });
 }
 
@@ -79,7 +101,7 @@ fn steam_events(
     mut client: ResMut<NetworkClient>
 ) {
     for ev in evs.read() {
-        println!("EV");
+        //println!("EV");
         match ev {
             SteamworksEvent::GameLobbyJoinRequested(info) => {
                 println!("Trying to join: {}", info.lobby_steam_id.raw());
@@ -89,8 +111,8 @@ fn steam_events(
                 println!("Chat Update");
                 match info.member_state_change {
                     bevy_steamworks::ChatMemberStateChange::Entered => lobby_joined(&mut client, info.lobby),
-                    bevy_steamworks::ChatMemberStateChange::Left => client.current_lobby = None,
-                    bevy_steamworks::ChatMemberStateChange::Disconnected => client.current_lobby = None,
+                    bevy_steamworks::ChatMemberStateChange::Left => client.lobby_status = LobbyStatus::OutOfLobby,
+                    bevy_steamworks::ChatMemberStateChange::Disconnected => client.lobby_status = LobbyStatus::OutOfLobby,
                     _ => println!("other")
                 }
             },
@@ -116,6 +138,7 @@ fn steam_events(
 }
 
 fn main() {
+    let (tx, rx) = flume::unbounded();
     App::new()
         .add_plugins(SteamworksPlugin::init_app(480).unwrap())
         .add_plugins(DefaultPlugins)
@@ -123,6 +146,9 @@ fn main() {
         .insert_resource(AmbientLight {
             brightness: 750.0,
             ..default()
+        })
+        .insert_resource(LobbyIdCallbackChannel {
+            tx, rx
         })
         .add_systems(Startup, steam_start)
         .add_systems(Update, (steam_system, steam_events))
@@ -150,7 +176,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         ..default()
     });
 
-    spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
+    //spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
         
     commands.spawn(SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),
