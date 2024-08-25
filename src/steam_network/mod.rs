@@ -1,8 +1,7 @@
-use bevy::{app::{App, Plugin, Startup, Update}, input::ButtonInput, math::Vec3, prelude::{Commands, EventReader, KeyCode, Res, ResMut, Resource}, scene::serde};
+use bevy::{app::{App, Plugin, Startup, Update}, input::ButtonInput, math::{Vec3, VectorSpace}, prelude::{Commands, EventReader, KeyCode, Res, ResMut, Resource}, scene::serde};
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
 use flume::{Receiver, Sender};
 use ::serde::{Deserialize, Serialize};
-use serde_binary::binary_stream::Endian;
 use steamworks::networking_types::{NetworkingIdentity, SendFlags};
 pub struct SteamNetworkPlugin;
 
@@ -15,7 +14,7 @@ impl Plugin for SteamNetworkPlugin {
             tx, rx
         })
         .add_systems(Startup, steam_start)
-        .add_systems(Update, (steam_system, steam_events));
+        .add_systems(Update, (steam_system, steam_events, receive_messages));
     }
 }
 
@@ -54,25 +53,32 @@ fn send_message(steam_client: &Res<Client>, lobby_id: LobbyId, data: NetworkData
     println!("Send");
     for player in steam_client.matchmaking().lobby_members(lobby_id) {
         println!("Id: {}", player.raw());
-        //send_type: 0 Unreliable 8 reliable
-        let serialize_data = serde_binary::to_vec(&data, Endian::Big);
+        let serialize_data = rmp_serde::to_vec(&data);
         let Ok(serialized) = serialize_data else {return;};
-       // let buffer: [u8, 64] = [];
         let data_arr = serialized.as_slice();
-        for n in data_arr {
-            println!("{}", n);
-        }
         let network_identity = NetworkingIdentity::new_steam_id(player);
-        if network_identity.is_valid() {
-            println!("Valid identity");
-        } else {
-            println!("Invalid identity");
-        }
         let res = steam_client.networking_messages().send_message_to_user(network_identity, SendFlags::RELIABLE, &data_arr, 0);
         match res {
             Ok(_) => println!("Message sent succesfully"),
             Err(err) => println!("Message error: {}", err.to_string()),
         }
+    }
+}
+
+fn receive_messages(steam_client: Res<Client>) {
+    let messages: Vec<steamworks::networking_types::NetworkingMessage<steamworks::ClientManager>> = steam_client.networking_messages().receive_messages_on_channel(0, 1);
+    if (messages.len() > 0 ) {
+        println!("Received {} messages", messages.len())
+    }
+    for message in messages {
+        let serialized_data = message.data();
+        let data_try: Result<NetworkData, _> = rmp_serde::from_slice(serialized_data);
+        match data_try {
+            Ok(data) => match data {
+                NetworkData::PositionUpdate((id, pos)) => println!("Position updated {}", pos)
+            },
+            Err(err) => println!("{}", err.to_string())
+        } 
     }
 }
 
@@ -105,7 +111,7 @@ fn steam_system(
     }
     else if (keys.just_pressed(KeyCode::KeyT)) {
         if let LobbyStatus::InLobby(lobby_id) = client.lobby_status {
-            send_message(&steam_client, lobby_id, NetworkData::PositionUpdate((NetworkId(0), Vec3::ONE)));
+            send_message(&steam_client, lobby_id, NetworkData::PositionUpdate((NetworkId(0), Vec3 {x:1., y:2., z: 3.})));
         }
     }
     if let Ok(lobby_id) = rx.try_recv() {
