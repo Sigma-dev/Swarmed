@@ -4,7 +4,7 @@ use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::spawn_spider;
-use steam_network::{LobbyIdCallbackChannel, NetworkClient, NetworkData, NetworkId, SteamNetworkPlugin};
+use steam_network::{FilePath, LobbyIdCallbackChannel, NetworkClient, NetworkData, NetworkId, SteamNetworkPlugin};
 use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;
@@ -50,7 +50,7 @@ fn steam_system(
         client.leave_lobby();
     }
     else if (keys.just_pressed(KeyCode::KeyT)) {
-       client.send_message(NetworkData::PositionUpdate(NetworkId(0), Vec3 {x:1., y:2., z: 3.}));
+       client.send_message(NetworkData::Instantiate(NetworkId(0), FilePath(0),Vec3 {x:1., y:2., z: 3.}));
     }
 }
 

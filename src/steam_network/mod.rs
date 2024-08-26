@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use bevy::{app::{App, Plugin, Startup, Update}, input::ButtonInput, math::{Vec3, VectorSpace}, prelude::{Commands, Component, EventReader, KeyCode, Res, ResMut, Resource, Transform}, scene::serde};
+use bevy::{app::{App, Plugin, Startup, Update}, asset::Assets, color::Color, input::ButtonInput, math::{Vec3, VectorSpace}, pbr::{PbrBundle, StandardMaterial}, prelude::{default, Commands, Component, Cuboid, EventReader, KeyCode, Mesh, Res, ResMut, Resource, Transform}, scene::serde};
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
 use flume::{Receiver, Sender};
 use ::serde::{Deserialize, Serialize};
@@ -97,7 +97,7 @@ struct NetworkedTransform {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct FilePath(u32);
+pub struct FilePath(pub u32);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum NetworkData {
@@ -133,7 +133,26 @@ fn send_message(steam_client: &Res<Client>, lobby_id: LobbyId, data: NetworkData
     }
 }
 
-fn receive_messages(steam_client: Res<Client>) {
+fn instantiate(
+    mut commands: &mut Commands,
+    mut meshes: &mut ResMut<Assets<Mesh>>,
+    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+) {
+    println!("Instantiation");
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
+        material: materials.add(Color::srgb_u8(124, 144, 255)),
+        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        ..default()
+    });
+}
+
+fn receive_messages(
+    steam_client: Res<Client>, 
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     let messages: Vec<steamworks::networking_types::NetworkingMessage<steamworks::ClientManager>> = steam_client.networking_messages().receive_messages_on_channel(0, 1);
     if (messages.len() > 0 ) {
         println!("Received {} messages", messages.len())
@@ -144,7 +163,7 @@ fn receive_messages(steam_client: Res<Client>) {
         match data_try {
             Ok(data) => match data {
                 NetworkData::SendObjectData(id, action_id, action_data) => println!("Action"),
-                NetworkData::Instantiate(id, prefab_path, pos) => println!("Instantiation"),
+                NetworkData::Instantiate(id, prefab_path, pos) => instantiate(&mut commands, &mut meshes, &mut materials),
                 NetworkData::PositionUpdate(id, pos) => println!("Position updated {}", pos),
                 NetworkData::Destroy(id) => println!("Destroyed"),
             },
