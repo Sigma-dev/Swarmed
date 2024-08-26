@@ -101,7 +101,8 @@ pub struct FilePath(pub u32);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum NetworkData {
-    Handshake,
+    HandshakeInit,
+    HandshakeResponse,
     SendObjectData(NetworkId, i8, Vec<u8>), //NetworkId of receiver, id of action, data of action
     Instantiate(NetworkId, FilePath, Vec3), //NetworkId of created object, filepath of prefab, starting position
     PositionUpdate(NetworkId, Vec3), //NetworkId of receiver, new position
@@ -149,12 +150,12 @@ fn instantiate(
 }
 
 fn receive_messages(
-    steam_client: Res<Client>, 
+    client: Res<NetworkClient>, 
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let messages: Vec<steamworks::networking_types::NetworkingMessage<steamworks::ClientManager>> = steam_client.networking_messages().receive_messages_on_channel(0, 1);
+    let messages: Vec<steamworks::networking_types::NetworkingMessage<steamworks::ClientManager>> = client.steam_client.networking_messages().receive_messages_on_channel(0, 1);
     if (messages.len() > 0 ) {
         println!("Received {} messages", messages.len())
     }
@@ -167,7 +168,11 @@ fn receive_messages(
                 NetworkData::Instantiate(id, prefab_path, pos) => instantiate(&mut commands, &mut meshes, &mut materials),
                 NetworkData::PositionUpdate(id, pos) => println!("Position updated {}", pos),
                 NetworkData::Destroy(id) => println!("Destroyed"),
-                NetworkData::Handshake => println!("Handshake"),
+                NetworkData::HandshakeInit => {
+                    println!("Received handshake, sending response");
+                    client.send_message(NetworkData::HandshakeResponse);
+                },
+                NetworkData::HandshakeResponse => {println!("Received handshake response")}
             },
             Err(err) => println!("{}", err.to_string())
         } 
@@ -212,7 +217,7 @@ fn steam_system(
     if let Ok(lobby_id) = rx.try_recv() {
         //game_state.set(ClientState::InLobby);
         client.lobby_status = LobbyStatus::InLobby(lobby_id);
-        client.send_message(NetworkData::Handshake);
+        client.send_message(NetworkData::HandshakeInit);
         println!("Joined Lobby: {}", lobby_id.raw());
     }
 }
