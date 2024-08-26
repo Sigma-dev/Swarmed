@@ -50,7 +50,8 @@ fn steam_system(
         client.leave_lobby();
     }
     else if (keys.just_pressed(KeyCode::KeyT)) {
-       client.send_message(NetworkData::Instantiate(NetworkId(0), FilePath(0),Vec3 {x:1., y:2., z: 3.}), false);
+       //client.send_message(NetworkData::Instantiate(NetworkId(0), FilePath(0),Vec3 {x:1., y:2., z: 3.}), false);
+       client.send_message(NetworkData::PositionUpdate(NetworkId(0), Vec3::new(1., 2., 3.)), true);
     }
 }
 

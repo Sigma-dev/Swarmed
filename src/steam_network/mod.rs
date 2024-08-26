@@ -60,12 +60,11 @@ impl NetworkClient {
     }
     pub fn send_message(&self, data: NetworkData, only_others: bool) {
         let LobbyStatus::InLobby(lobby_id) = self.lobby_status else { return; };
-        println!("Send");
         for player in self.steam_client.matchmaking().lobby_members(lobby_id) {
             if only_others && player == self.id {
                 continue;
             }
-            println!("Id: {}", player.raw());
+            println!("Sending to: {}", player.raw());
             let serialize_data = rmp_serde::to_vec(&data);
             let Ok(serialized) = serialize_data else {return;};
             let data_arr = serialized.as_slice();
@@ -118,7 +117,8 @@ pub struct LobbyIdCallbackChannel {
 
 fn lobby_joined(client: &mut ResMut<NetworkClient>, lobby: LobbyId) {
     println!("Lobby joined: {}", lobby.raw());
-    client.lobby_status = LobbyStatus::InLobby(lobby)
+   // client.lobby_status = LobbyStatus::InLobby(lobby)
+    client.send_message(NetworkData::Handshake, true);
 }
 
 /* 
@@ -173,7 +173,7 @@ fn receive_messages(
                 NetworkData::Destroy(id) => println!("Destroyed"),
                 NetworkData::Handshake => {
                     println!("Received handshake, sending response");
-                    client.send_message(NetworkData::Handshake, true);
+                    //client.send_message(NetworkData::Handshake, true);
                 },
             },
             Err(err) => println!("{}", err.to_string())
@@ -219,8 +219,8 @@ fn steam_system(
     if let Ok(lobby_id) = rx.try_recv() {
         //game_state.set(ClientState::InLobby);
         client.lobby_status = LobbyStatus::InLobby(lobby_id);
-        client.send_message(NetworkData::Handshake, true);
         println!("Joined Lobby: {}", lobby_id.raw());
+        //client.send_message(NetworkData::Handshake, true);
     }
 }
 
