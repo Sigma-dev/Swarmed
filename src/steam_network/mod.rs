@@ -40,7 +40,7 @@ impl NetworkClient {
             });
     }
     pub fn join_lobby(&self, lobby_id: LobbyId) {
-        let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (self.channel.tx.clone(), self.channel.rx.clone());
+        let tx = self.channel.tx.clone();
         self.steam_client.matchmaking().join_lobby(lobby_id, 
             move |res| {
                 if let Ok(lobby_id) = res {
@@ -101,6 +101,7 @@ pub struct FilePath(pub u32);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum NetworkData {
+    Handshake,
     SendObjectData(NetworkId, i8, Vec<u8>), //NetworkId of receiver, id of action, data of action
     Instantiate(NetworkId, FilePath, Vec3), //NetworkId of created object, filepath of prefab, starting position
     PositionUpdate(NetworkId, Vec3), //NetworkId of receiver, new position
@@ -166,6 +167,7 @@ fn receive_messages(
                 NetworkData::Instantiate(id, prefab_path, pos) => instantiate(&mut commands, &mut meshes, &mut materials),
                 NetworkData::PositionUpdate(id, pos) => println!("Position updated {}", pos),
                 NetworkData::Destroy(id) => println!("Destroyed"),
+                NetworkData::Handshake => println!("Handshake"),
             },
             Err(err) => println!("{}", err.to_string())
         } 
@@ -210,6 +212,7 @@ fn steam_system(
     if let Ok(lobby_id) = rx.try_recv() {
         //game_state.set(ClientState::InLobby);
         client.lobby_status = LobbyStatus::InLobby(lobby_id);
+        client.send_message(NetworkData::Handshake);
         println!("Joined Lobby: {}", lobby_id.raw());
     }
 }
@@ -240,7 +243,7 @@ fn steam_events(
         match ev {
             SteamworksEvent::GameLobbyJoinRequested(info) => {
                 println!("Trying to join: {}", info.lobby_steam_id.raw());
-               // client.join_lobby(info.lobby_steam_id, &channel)
+                client.join_lobby(info.lobby_steam_id)
             },
             SteamworksEvent::LobbyChatUpdate(info) => {
                 println!("Chat Update");
