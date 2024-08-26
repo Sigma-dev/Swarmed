@@ -4,7 +4,7 @@ use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::spawn_spider;
-use steam_network::SteamNetworkPlugin;
+use steam_network::{NetworkClient, SteamNetworkPlugin};
 use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;
@@ -37,6 +37,21 @@ fn modify_meshes(
     commands
       .entity(trigger.entity())
       .insert(NoBackfaceCulling);
+}
+fn steam_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut client: ResMut<NetworkClient>,
+    channel: Res<LobbyIdCallbackChannel>
+) {
+    if keys.just_pressed(KeyCode::KeyC) {
+        client.create_lobby(&channel)
+    }
+    else if (keys.just_pressed(KeyCode::KeyV)) {
+        //
+    }
+    else if (keys.just_pressed(KeyCode::KeyT)) {
+       // send_message(&steam_client, lobby_id, NetworkData::PositionUpdate(NetworkId(0), Vec3 {x:1., y:2., z: 3.}));
+    }
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>,

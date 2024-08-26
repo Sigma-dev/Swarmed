@@ -7,7 +7,7 @@ use ::serde::{Deserialize, Serialize};
 use steamworks::networking_types::{NetworkingIdentity, SendFlags};
 pub struct SteamNetworkPlugin;
 
-impl Plugin for SteamNetworkPlugin {
+pub impl Plugin for SteamNetworkPlugin {
     fn build(&self, app: &mut App) {
         let (tx, rx) = flume::unbounded();
         app
@@ -21,9 +21,28 @@ impl Plugin for SteamNetworkPlugin {
 }
 
 #[derive(Resource)]
-struct NetworkClient {
+pub struct NetworkClient {
     id: SteamId,
     lobby_status: LobbyStatus,
+    steam_client: bevy_steamworks::Client
+}
+
+impl NetworkClient {
+    fn create_lobby(&self, channel: &Res<LobbyIdCallbackChannel>) {
+        let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (channel.tx.clone(), channel.rx.clone());
+        if self.lobby_status != LobbyStatus::OutOfLobby { return; };
+        self.steam_client.matchmaking().create_lobby(LobbyType::Public, 2, move |res| {
+            if let Ok(lobby_id) = res {
+                println!("a {}", res.unwrap().raw());
+                match tx.send(lobby_id) {
+                    Ok(_) => {}
+                    Err(_) => {
+                        println!("send err")
+                    }
+                }
+            }
+        });
+    }
 }
 
 #[derive(PartialEq)]
@@ -109,8 +128,9 @@ fn steam_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut client: ResMut<NetworkClient>,
     channel: Res<LobbyIdCallbackChannel>
-) {
+) { 
     let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (channel.tx.clone(), channel.rx.clone());
+    /*
     if keys.just_pressed(KeyCode::KeyC) {
         if client.lobby_status != LobbyStatus::OutOfLobby { return; };
         steam_client.matchmaking().create_lobby(LobbyType::Public, 2, move |res| {
@@ -136,6 +156,7 @@ fn steam_system(
             send_message(&steam_client, lobby_id, NetworkData::PositionUpdate(NetworkId(0), Vec3 {x:1., y:2., z: 3.}));
         }
     }
+    */
     if let Ok(lobby_id) = rx.try_recv() {
         //game_state.set(ClientState::InLobby);
         client.lobby_status = LobbyStatus::InLobby(lobby_id);
@@ -150,7 +171,8 @@ fn steam_start(
     println!("Connected: {}", steam_client.user().steam_id().raw());
     commands.insert_resource(NetworkClient {
         id: steam_client.user().steam_id(),
-        lobby_status: LobbyStatus::OutOfLobby 
+        lobby_status: LobbyStatus::OutOfLobby,
+        steam_client: steam_client.clone()
     });
 }
 
