@@ -1,4 +1,6 @@
-use bevy::{app::{App, Plugin, Startup, Update}, input::ButtonInput, math::{Vec3, VectorSpace}, prelude::{Commands, EventReader, KeyCode, Res, ResMut, Resource}, scene::serde};
+use std::path::Path;
+
+use bevy::{app::{App, Plugin, Startup, Update}, input::ButtonInput, math::{Vec3, VectorSpace}, prelude::{Commands, Component, EventReader, KeyCode, Res, ResMut, Resource, Transform}, scene::serde};
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
 use flume::{Receiver, Sender};
 use ::serde::{Deserialize, Serialize};
@@ -21,7 +23,7 @@ impl Plugin for SteamNetworkPlugin {
 #[derive(Resource)]
 struct NetworkClient {
     id: SteamId,
-    lobby_status: LobbyStatus
+    lobby_status: LobbyStatus,
 }
 
 #[derive(PartialEq)]
@@ -30,12 +32,29 @@ enum LobbyStatus {
     OutOfLobby
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Component, Serialize, Deserialize, Debug)]
 struct NetworkId(u32);
+
+#[derive(PartialEq)]
+enum NetworkSync {
+    Disabled,
+    Enabled(f32),
+}
+
+#[derive(Component)]
+struct NetworkedTransform {
+    synced: bool
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct FilePath(u32);
 
 #[derive(Serialize, Deserialize, Debug)]
 enum NetworkData {
-    PositionUpdate((NetworkId, Vec3))
+    SendObjectData(NetworkId, i8, Vec<u8>), //NetworkId of receiver, id of action, data of action
+    Instantiate(NetworkId, FilePath, Vec3), //NetworkId of created object, filepath of prefab, starting position
+    PositionUpdate(NetworkId, Vec3), //NetworkId of receiver, new position
+    Destroy(NetworkId), //NetworkId of object to be destroyed
 }
 
 #[derive(Resource)]
@@ -75,7 +94,10 @@ fn receive_messages(steam_client: Res<Client>) {
         let data_try: Result<NetworkData, _> = rmp_serde::from_slice(serialized_data);
         match data_try {
             Ok(data) => match data {
-                NetworkData::PositionUpdate((id, pos)) => println!("Position updated {}", pos)
+                NetworkData::SendObjectData(id, action_id, action_data) => println!("Action"),
+                NetworkData::Instantiate(id, prefab_path, pos) => println!("Instantiation"),
+                NetworkData::PositionUpdate(id, pos) => println!("Position updated {}", pos),
+                NetworkData::Destroy(id) => println!("Destroyed"),
             },
             Err(err) => println!("{}", err.to_string())
         } 
@@ -111,7 +133,7 @@ fn steam_system(
     }
     else if (keys.just_pressed(KeyCode::KeyT)) {
         if let LobbyStatus::InLobby(lobby_id) = client.lobby_status {
-            send_message(&steam_client, lobby_id, NetworkData::PositionUpdate((NetworkId(0), Vec3 {x:1., y:2., z: 3.})));
+            send_message(&steam_client, lobby_id, NetworkData::PositionUpdate(NetworkId(0), Vec3 {x:1., y:2., z: 3.}));
         }
     }
     if let Ok(lobby_id) = rx.try_recv() {
