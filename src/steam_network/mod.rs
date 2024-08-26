@@ -7,7 +7,7 @@ use ::serde::{Deserialize, Serialize};
 use steamworks::networking_types::{NetworkingIdentity, SendFlags};
 pub struct SteamNetworkPlugin;
 
-pub impl Plugin for SteamNetworkPlugin {
+impl Plugin for SteamNetworkPlugin {
     fn build(&self, app: &mut App) {
         let (tx, rx) = flume::unbounded();
         app
@@ -28,20 +28,40 @@ pub struct NetworkClient {
 }
 
 impl NetworkClient {
-    fn create_lobby(&self, channel: &Res<LobbyIdCallbackChannel>) {
+    pub fn create_lobby(&self, channel: &Res<LobbyIdCallbackChannel>) {
         let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (channel.tx.clone(), channel.rx.clone());
         if self.lobby_status != LobbyStatus::OutOfLobby { return; };
         self.steam_client.matchmaking().create_lobby(LobbyType::Public, 2, move |res| {
             if let Ok(lobby_id) = res {
-                println!("a {}", res.unwrap().raw());
                 match tx.send(lobby_id) {
                     Ok(_) => {}
                     Err(_) => {
-                        println!("send err")
                     }
                 }
             }
         });
+    }
+    pub fn leave_lobby(&mut self) {
+        let LobbyStatus::InLobby(lobby) = self.lobby_status else {return; };
+        println!("Leave");
+        self.steam_client.matchmaking().leave_lobby(lobby);
+        self.lobby_status = LobbyStatus::OutOfLobby;
+    }
+    pub fn send_message(&self, data: NetworkData) {
+        let LobbyStatus::InLobby(lobby_id) = self.lobby_status else { return; };
+        println!("Send");
+        for player in self.steam_client.matchmaking().lobby_members(lobby_id) {
+            println!("Id: {}", player.raw());
+            let serialize_data = rmp_serde::to_vec(&data);
+            let Ok(serialized) = serialize_data else {return;};
+            let data_arr = serialized.as_slice();
+            let network_identity = NetworkingIdentity::new_steam_id(player);
+            let res = self.steam_client.networking_messages().send_message_to_user(network_identity, SendFlags::RELIABLE, &data_arr, 0);
+            match res {
+                Ok(_) => println!("Message sent succesfully"),
+                Err(err) => println!("Message error: {}", err.to_string()),
+            }
+        }
     }
 }
 
@@ -52,7 +72,7 @@ enum LobbyStatus {
 }
 
 #[derive(Component, Serialize, Deserialize, Debug)]
-struct NetworkId(u32);
+pub struct NetworkId(pub u32);
 
 #[derive(PartialEq)]
 enum NetworkSync {
@@ -69,7 +89,7 @@ struct NetworkedTransform {
 struct FilePath(u32);
 
 #[derive(Serialize, Deserialize, Debug)]
-enum NetworkData {
+pub enum NetworkData {
     SendObjectData(NetworkId, i8, Vec<u8>), //NetworkId of receiver, id of action, data of action
     Instantiate(NetworkId, FilePath, Vec3), //NetworkId of created object, filepath of prefab, starting position
     PositionUpdate(NetworkId, Vec3), //NetworkId of receiver, new position
@@ -77,9 +97,9 @@ enum NetworkData {
 }
 
 #[derive(Resource)]
-struct LobbyIdCallbackChannel {
-    tx: Sender<LobbyId>,
-    rx: Receiver<LobbyId>
+pub struct LobbyIdCallbackChannel {
+    pub tx: Sender<LobbyId>,
+    pub rx: Receiver<LobbyId>
 }
 
 fn lobby_joined(client: &mut ResMut<NetworkClient>, lobby: LobbyId) {

@@ -76,9 +76,6 @@ fn handle_ik(
             let dot = dir.normalize().dot(arm.up);
             let enabled = {dot > 0.};
             
-            
-            
-
             if let Ok(updated_knee_transform) = transform_params.p0().compute_global_transform(skinned_mesh.joints[1]) {
                 let knee_vec = (updated_knee_transform.translation() - middle).normalize();
                 //gizmos.line(middle, middle+ knee_vec, Color::WHITE);
@@ -89,7 +86,7 @@ fn handle_ik(
             // println!("len: {}", rotation_arc.length());
                 let signed_angle = signed_angle_between(knee_vec, arm.up, dir);
                 //let signed_angle2 = knee_vec.angle_between(arm.up) * (knee_vec.cross(arm.up)).signum();
-                let sg = calculate_correction(middle, knee_transform.translation(), arm.up, dir);
+                let sg: f32 = calculate_correction(middle, knee_transform.translation(), arm.up, dir);
                 
                 //println!("Dot: {}", dot);
              //   println!("SG: {}", sg.to_degrees());

@@ -4,7 +4,7 @@ use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::spawn_spider;
-use steam_network::{NetworkClient, SteamNetworkPlugin};
+use steam_network::{LobbyIdCallbackChannel, NetworkClient, NetworkData, NetworkId, SteamNetworkPlugin};
 use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;
@@ -25,7 +25,7 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, (setup, ).chain())
-        .add_systems(Update, (movable))
+        .add_systems(Update, (movable, steam_system))
        // .observe(modify_meshes)
         .run();
 }
@@ -44,13 +44,13 @@ fn steam_system(
     channel: Res<LobbyIdCallbackChannel>
 ) {
     if keys.just_pressed(KeyCode::KeyC) {
-        client.create_lobby(&channel)
+        client.create_lobby(&channel);
     }
     else if (keys.just_pressed(KeyCode::KeyV)) {
-        //
+        client.leave_lobby();
     }
     else if (keys.just_pressed(KeyCode::KeyT)) {
-       // send_message(&steam_client, lobby_id, NetworkData::PositionUpdate(NetworkId(0), Vec3 {x:1., y:2., z: 3.}));
+       client.send_message(NetworkData::PositionUpdate(NetworkId(0), Vec3 {x:1., y:2., z: 3.}));
     }
 }
 
