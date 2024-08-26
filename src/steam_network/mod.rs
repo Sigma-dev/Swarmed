@@ -31,15 +31,29 @@ impl NetworkClient {
     pub fn create_lobby(&self, channel: &Res<LobbyIdCallbackChannel>) {
         let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (channel.tx.clone(), channel.rx.clone());
         if self.lobby_status != LobbyStatus::OutOfLobby { return; };
-        self.steam_client.matchmaking().create_lobby(LobbyType::Public, 2, move |res| {
-            if let Ok(lobby_id) = res {
-                match tx.send(lobby_id) {
-                    Ok(_) => {}
-                    Err(_) => {
+        self.steam_client.matchmaking().create_lobby(LobbyType::Public, 2, 
+            move |res| {
+                if let Ok(lobby_id) = res {
+                    match tx.send(lobby_id) {
+                        Ok(_) => {}
+                        Err(_) => {
+                        }
                     }
                 }
-            }
-        });
+            });
+    }
+    pub fn join_lobby(&self, lobby_id: LobbyId, channel: &Res<LobbyIdCallbackChannel>) {
+        let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (channel.tx.clone(), channel.rx.clone());
+        self.steam_client.matchmaking().join_lobby(lobby_id, 
+            move |res| {
+                if let Ok(lobby_id) = res {
+                    match tx.send(lobby_id) {
+                        Ok(_) => {}
+                        Err(_) => {
+                        }
+                    }
+                }
+            });
     }
     pub fn leave_lobby(&mut self) {
         let LobbyStatus::InLobby(lobby) = self.lobby_status else {return; };
@@ -199,14 +213,15 @@ fn steam_start(
 fn steam_events(
     steam_client: Res<Client>,
     mut evs: EventReader<SteamworksEvent>,
-    mut client: ResMut<NetworkClient>
+    mut client: ResMut<NetworkClient>,
+    channel: Res<LobbyIdCallbackChannel>
 ) {
     for ev in evs.read() {
         //println!("EV");
         match ev {
             SteamworksEvent::GameLobbyJoinRequested(info) => {
                 println!("Trying to join: {}", info.lobby_steam_id.raw());
-                steam_client.matchmaking().join_lobby(info.lobby_steam_id, |_| {});
+                client.join_lobby(info.lobby_steam_id, &channel)
             },
             SteamworksEvent::LobbyChatUpdate(info) => {
                 println!("Chat Update");
