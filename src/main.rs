@@ -41,10 +41,10 @@ fn modify_meshes(
 fn steam_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut client: ResMut<NetworkClient>,
-    channel: Res<LobbyIdCallbackChannel>
+   // channel: Res<LobbyIdCallbackChannel>
 ) {
     if keys.just_pressed(KeyCode::KeyC) {
-        client.create_lobby(&channel);
+        client.create_lobby();
     }
     else if (keys.just_pressed(KeyCode::KeyV)) {
         client.leave_lobby();

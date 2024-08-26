@@ -9,12 +9,8 @@ pub struct SteamNetworkPlugin;
 
 impl Plugin for SteamNetworkPlugin {
     fn build(&self, app: &mut App) {
-        let (tx, rx) = flume::unbounded();
         app
         .add_plugins(SteamworksPlugin::init_app(480).unwrap())
-        .insert_resource(LobbyIdCallbackChannel {
-            tx, rx
-        })
         .add_systems(Startup, steam_start)
         .add_systems(Update, (steam_system, steam_events, receive_messages));
     }
@@ -24,12 +20,13 @@ impl Plugin for SteamNetworkPlugin {
 pub struct NetworkClient {
     id: SteamId,
     lobby_status: LobbyStatus,
-    steam_client: bevy_steamworks::Client
+    steam_client: bevy_steamworks::Client,
+    channel: LobbyIdCallbackChannel,
 }
 
 impl NetworkClient {
-    pub fn create_lobby(&self, channel: &Res<LobbyIdCallbackChannel>) {
-        let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (channel.tx.clone(), channel.rx.clone());
+    pub fn create_lobby(&self) {
+        let tx = self.channel.tx.clone();
         if self.lobby_status != LobbyStatus::OutOfLobby { return; };
         self.steam_client.matchmaking().create_lobby(LobbyType::Public, 2, 
             move |res| {
@@ -42,8 +39,8 @@ impl NetworkClient {
                 }
             });
     }
-    pub fn join_lobby(&self, lobby_id: LobbyId, channel: &Res<LobbyIdCallbackChannel>) {
-        let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (channel.tx.clone(), channel.rx.clone());
+    pub fn join_lobby(&self, lobby_id: LobbyId) {
+        let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (self.channel.tx.clone(), self.channel.rx.clone());
         self.steam_client.matchmaking().join_lobby(lobby_id, 
             move |res| {
                 if let Ok(lobby_id) = res {
@@ -110,7 +107,6 @@ pub enum NetworkData {
     Destroy(NetworkId), //NetworkId of object to be destroyed
 }
 
-#[derive(Resource)]
 pub struct LobbyIdCallbackChannel {
     pub tx: Sender<LobbyId>,
     pub rx: Receiver<LobbyId>
@@ -161,9 +157,10 @@ fn steam_system(
     steam_client: Res<Client>,
     keys: Res<ButtonInput<KeyCode>>,
     mut client: ResMut<NetworkClient>,
-    channel: Res<LobbyIdCallbackChannel>
+    //channel: Res<LobbyIdCallbackChannel>
 ) { 
-    let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (channel.tx.clone(), channel.rx.clone());
+    //let (tx, rx): (Sender<LobbyId>, Receiver<LobbyId>) = (channel.tx.clone(), channel.rx.clone());
+    let rx = client.channel.rx.clone();
     /*
     if keys.just_pressed(KeyCode::KeyC) {
         if client.lobby_status != LobbyStatus::OutOfLobby { return; };
@@ -194,7 +191,7 @@ fn steam_system(
     if let Ok(lobby_id) = rx.try_recv() {
         //game_state.set(ClientState::InLobby);
         client.lobby_status = LobbyStatus::InLobby(lobby_id);
-        println!("Received: {}", lobby_id.raw());
+        println!("Joined Lobby: {}", lobby_id.raw());
     }
 }
 
@@ -203,10 +200,13 @@ fn steam_start(
     mut commands: Commands,
 ) {
     println!("Connected: {}", steam_client.user().steam_id().raw());
+    let (tx, rx) = flume::unbounded();
+
     commands.insert_resource(NetworkClient {
         id: steam_client.user().steam_id(),
         lobby_status: LobbyStatus::OutOfLobby,
-        steam_client: steam_client.clone()
+        steam_client: steam_client.clone(),
+        channel: LobbyIdCallbackChannel { tx, rx }
     });
 }
 
@@ -214,14 +214,14 @@ fn steam_events(
     steam_client: Res<Client>,
     mut evs: EventReader<SteamworksEvent>,
     mut client: ResMut<NetworkClient>,
-    channel: Res<LobbyIdCallbackChannel>
+    //channel: Res<LobbyIdCallbackChannel>
 ) {
     for ev in evs.read() {
         //println!("EV");
         match ev {
             SteamworksEvent::GameLobbyJoinRequested(info) => {
                 println!("Trying to join: {}", info.lobby_steam_id.raw());
-                client.join_lobby(info.lobby_steam_id, &channel)
+               // client.join_lobby(info.lobby_steam_id, &channel)
             },
             SteamworksEvent::LobbyChatUpdate(info) => {
                 println!("Chat Update");
