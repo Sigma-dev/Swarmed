@@ -50,7 +50,7 @@ fn steam_system(
         client.leave_lobby();
     }
     else if (keys.just_pressed(KeyCode::KeyT)) {
-       client.send_message(NetworkData::Instantiate(NetworkId(0), FilePath(0),Vec3 {x:1., y:2., z: 3.}), false);
+       client.send_message(NetworkData::Instantiate(NetworkId(0), FilePath(0),Vec3 {x:1., y:2., z: 1.}), false);
        //client.send_message(NetworkData::PositionUpdate(NetworkId(0), Vec3::new(1., 2., 3.)), true);
     }
 }
@@ -79,7 +79,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
-
 }
 
 fn movable(

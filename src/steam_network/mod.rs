@@ -4,7 +4,7 @@ use bevy::{app::{App, Plugin, Startup, Update}, asset::Assets, color::Color, inp
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
 use flume::{Receiver, Sender};
 use ::serde::{Deserialize, Serialize};
-use steamworks::networking_types::{NetworkingIdentity, SendFlags};
+use steamworks::{networking_types::{NetworkingIdentity, SendFlags}, LobbyChatUpdate};
 pub struct SteamNetworkPlugin;
 
 impl Plugin for SteamNetworkPlugin {
@@ -116,8 +116,9 @@ pub struct LobbyIdCallbackChannel {
     pub rx: Receiver<LobbyId>
 }
 
-fn lobby_joined(client: &mut ResMut<NetworkClient>, lobby: LobbyId) {
-    println!("Lobby joined: {}", lobby.raw());
+fn lobby_joined(client: &mut ResMut<NetworkClient>, info: &LobbyChatUpdate) {
+    println!("Lobby joined: {}", info.lobby.raw());
+    
    // client.lobby_status = LobbyStatus::InLobby(lobby)
     //client.send_message(NetworkData::Handshake, true);
 }
@@ -148,7 +149,7 @@ fn instantiate(
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
 ) {
     println!("Instantiation");
-    if (path.0 == 0) {
+    if path.0 == 0 {
         commands.spawn((
             PbrBundle {
             mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
@@ -250,6 +251,11 @@ fn steam_start(
     mut commands: Commands,
 ) {
     println!("Connected: {}", steam_client.user().steam_id().raw());
+    steam_client.networking_messages().session_request_callback(
+        |res| {
+            res.accept()
+        }
+    );
     let (tx, rx) = flume::unbounded();
 
     commands.insert_resource(NetworkClient {
@@ -277,7 +283,7 @@ fn steam_events(
             SteamworksEvent::LobbyChatUpdate(info) => {
                 println!("Chat Update");
                 match info.member_state_change {
-                    bevy_steamworks::ChatMemberStateChange::Entered => lobby_joined(&mut client, info.lobby),
+                    bevy_steamworks::ChatMemberStateChange::Entered => lobby_joined(&mut client, info),
                     bevy_steamworks::ChatMemberStateChange::Left => client.lobby_status = LobbyStatus::OutOfLobby,
                     bevy_steamworks::ChatMemberStateChange::Disconnected => client.lobby_status = LobbyStatus::OutOfLobby,
                     _ => println!("other")
@@ -296,7 +302,6 @@ fn steam_events(
             SteamworksEvent::UserStatsReceived(_) => println!("UserStatsReceived"),
             SteamworksEvent::UserStatsStored(_) => println!("User stats stored"),
             SteamworksEvent::ValidateAuthTicketResponse(_) => println!("Validate auth ticket"),
-            SteamworksEvent::NetworkingMessagesSessionRequest(_) => println!("Auth requested"),
         }
        /*  if let SteamworksEvent::GameLobbyJoinRequested(info) = ev {
             println!("Trying to join: {}", info.lobby_steam_id.raw());
