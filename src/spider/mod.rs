@@ -30,7 +30,7 @@ pub fn spawn_spider(
             ..default()
         },
         //Movable,
-        LegCreature::new(LegSide::None, 0.2, legs_info)
+        LegCreature::new(LegSide::None, 0.2, legs_info, 0.2)
     ));
 }
 

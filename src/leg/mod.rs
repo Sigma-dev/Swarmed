@@ -43,15 +43,17 @@ pub struct LegCreature {
     pub target_height: f32,
     up: Vec3,
     pub legs_info: Vec<(Entity, Vec3)>,
+    pub speed_mult: f32,
     target_offset: Vec3,
 }
 impl LegCreature {
     pub fn new(
         current_side: LegSide,
         target_height: f32,
-        legs_info: Vec<(Entity, Vec3)>
+        legs_info: Vec<(Entity, Vec3)>,
+        speed_mult: f32
     ) -> Self {
-        Self { current_side, target_height, up: Vec3::Y, legs_info, target_offset: Vec3::ZERO }
+        Self { current_side, target_height, up: Vec3::Y, legs_info, target_offset: Vec3::ZERO, speed_mult }
     }
 }
 
@@ -121,7 +123,7 @@ fn move_creature(
         if keys.pressed(KeyCode::KeyE) {
             vec.y -= 1.0
         }
-        creature.target_offset = vec * 0.2;
+        creature.target_offset = vec * creature.speed_mult;
         //println!("OFFSET: {}", creature.target_offset);
 
     }
