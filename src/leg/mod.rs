@@ -63,7 +63,7 @@ pub struct LegPlugin;
 
 impl Plugin for LegPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (handle_height, handle_visual, determine_side, handle_leg_creature, handle_legs, move_creature).chain())
+        app.add_systems(Update, (handle_visual, determine_side, handle_leg_creature, handle_legs, move_creature, handle_height).chain())
         .observe(setup_legs);
     }
 }
@@ -121,7 +121,7 @@ fn move_creature(
         if keys.pressed(KeyCode::KeyE) {
             vec.y -= 1.0
         }
-        creature.target_offset = vec * 0.4;
+        creature.target_offset = vec * 0.2;
         //println!("OFFSET: {}", creature.target_offset);
 
     }
