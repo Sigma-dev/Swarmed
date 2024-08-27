@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use bevy::{app::{App, Plugin, Startup, Update}, asset::Assets, color::Color, input::ButtonInput, math::{Vec3, VectorSpace}, pbr::{PbrBundle, StandardMaterial}, prelude::{default, Commands, Component, Cuboid, EventReader, KeyCode, Mesh, Res, ResMut, Resource, Transform}, scene::serde};
+use bevy::{app::{App, Plugin, Startup, Update}, asset::Assets, color::Color, input::ButtonInput, math::{Vec3, VectorSpace}, pbr::{PbrBundle, StandardMaterial}, prelude::{default, Commands, Component, Cuboid, EventReader, KeyCode, Mesh, Query, Res, ResMut, Resource, Transform, With}, scene::serde};
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
 use flume::{Receiver, Sender};
 use ::serde::{Deserialize, Serialize};
@@ -22,6 +22,7 @@ pub struct NetworkClient {
     lobby_status: LobbyStatus,
     steam_client: bevy_steamworks::Client,
     channel: LobbyIdCallbackChannel,
+    network_id_counter: u32,
 }
 
 impl NetworkClient {
@@ -84,7 +85,7 @@ enum LobbyStatus {
     OutOfLobby
 }
 
-#[derive(Component, Serialize, Deserialize, Debug)]
+#[derive(Component, Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct NetworkId(pub u32);
 
 #[derive(PartialEq)]
@@ -118,7 +119,7 @@ pub struct LobbyIdCallbackChannel {
 fn lobby_joined(client: &mut ResMut<NetworkClient>, lobby: LobbyId) {
     println!("Lobby joined: {}", lobby.raw());
    // client.lobby_status = LobbyStatus::InLobby(lobby)
-    client.send_message(NetworkData::Handshake, true);
+    //client.send_message(NetworkData::Handshake, true);
 }
 
 /* 
@@ -139,17 +140,36 @@ fn send_message(steam_client: &Res<Client>, lobby_id: LobbyId, data: NetworkData
 }*/
 
 fn instantiate(
+    network_id: NetworkId,
+    path: FilePath,
+    pos: Vec3,
     mut commands: &mut Commands,
     mut meshes: &mut ResMut<Assets<Mesh>>,
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
 ) {
     println!("Instantiation");
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-        material: materials.add(Color::srgb_u8(124, 144, 255)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    if (path.0 == 0) {
+        commands.spawn((
+            PbrBundle {
+            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
+            material: materials.add(Color::srgb_u8(124, 144, 255)),
+            transform: Transform::from_translation(pos),
+            ..default()
+            },
+            NetworkId::from(network_id),
+            NetworkedTransform{synced: true}
+        ));
+    }
+}
+
+fn handle_networked_transform(
+    client: Res<NetworkClient>,
+    networked_transform_query: Query<(&Transform, &NetworkId, &NetworkedTransform),>
+) {
+    for (transform, network_id, networked_transform) in networked_transform_query.iter() {
+        if !networked_transform.synced { continue; };
+        client.send_message(NetworkData::PositionUpdate(*network_id, transform.translation), true)
+    }
 }
 
 fn receive_messages(
@@ -168,7 +188,7 @@ fn receive_messages(
         match data_try {
             Ok(data) => match data {
                 NetworkData::SendObjectData(id, action_id, action_data) => println!("Action"),
-                NetworkData::Instantiate(id, prefab_path, pos) => instantiate(&mut commands, &mut meshes, &mut materials),
+                NetworkData::Instantiate(id, prefab_path, pos) => instantiate(id, prefab_path, pos, &mut commands, &mut meshes, &mut materials),
                 NetworkData::PositionUpdate(id, pos) => println!("Position updated {}", pos),
                 NetworkData::Destroy(id) => println!("Destroyed"),
                 NetworkData::Handshake => {
@@ -177,7 +197,8 @@ fn receive_messages(
                 },
             },
             Err(err) => println!("{}", err.to_string())
-        } 
+        }
+        drop(message); //not sure about usefullness, mentionned in steam docs as release
     }
 }
 
@@ -235,7 +256,8 @@ fn steam_start(
         id: steam_client.user().steam_id(),
         lobby_status: LobbyStatus::OutOfLobby,
         steam_client: steam_client.clone(),
-        channel: LobbyIdCallbackChannel { tx, rx }
+        channel: LobbyIdCallbackChannel { tx, rx },
+        network_id_counter: 0,
     });
 }
 
@@ -274,6 +296,7 @@ fn steam_events(
             SteamworksEvent::UserStatsReceived(_) => println!("UserStatsReceived"),
             SteamworksEvent::UserStatsStored(_) => println!("User stats stored"),
             SteamworksEvent::ValidateAuthTicketResponse(_) => println!("Validate auth ticket"),
+            SteamworksEvent::NetworkingMessagesSessionRequest(_) => println!("Auth requested"),
         }
        /*  if let SteamworksEvent::GameLobbyJoinRequested(info) = ev {
             println!("Trying to join: {}", info.lobby_steam_id.raw());
