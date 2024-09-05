@@ -3,7 +3,7 @@ use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{se
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
-use spider::spawn_spider;
+use spider::{spawn_spider, spawn_test_arm};
 use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;
@@ -48,7 +48,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         ..default()
     });
 
-    spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
+    //spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
+    spawn_test_arm(&mut commands, &asset_server, &mut meshes, &mut materials);
         
     commands.spawn(SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),

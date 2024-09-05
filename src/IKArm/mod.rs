@@ -30,7 +30,68 @@ fn handle_arm_targets(
     }
 }
 
+
 fn handle_ik(
+    keys: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut arm_query: Query<(Entity, &IKArm)>,
+    children_query: Query<&Children>,
+    parent_query: Query<(Entity, &SkinnedMesh)>,
+    mut transform_query: Query<&mut Transform>,
+    mut gtransform_query: Query<&mut GlobalTransform>,
+    mut gizmos: Gizmos,
+) {
+    for (arm_entity, arm) in arm_query.iter_mut() {
+        for child in children_query.iter_descendants(arm_entity) {
+            let Ok((entity, skinned_mesh)) = parent_query.get(child) else {continue;};
+            let target_position: Vec3 = arm.target;
+            let Ok([root_transform]) = gtransform_query.get_many([arm_entity]) else { println!("fuck"); continue; };
+            let Ok([mut t0, mut t1, mut arm_transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], arm_entity]) else { println!("fuck"); continue; };
+            let l1: f32 = t0.translation.distance(t1.translation);
+            let l2: f32 = t0.translation.distance(t1.translation);
+            let mut target_direction = (target_position - root_transform.translation()).normalize();
+            let knee_circle_center = (target_position - root_transform.translation()) / 2.;
+            let knee_circle_distance = root_transform.translation().distance(knee_circle_center);
+            let knee_circle_radius = (l1.powi(2) - knee_circle_distance.powi(2)).sqrt();
+            let Ok(knee_circle_normal) = Dir3::new(target_direction) else { println!("woops"); return;};
+            gizmos.circle(knee_circle_center, knee_circle_normal, knee_circle_radius, Color::srgb(0., 0.5, 0.));
+            gizmos.line(knee_circle_center, knee_circle_center + arm.up, Color::srgb(0.5, 0.0, 0.));
+            let squished_up = squish_on_plane(arm.up, knee_circle_normal.as_vec3(), knee_circle_radius); //Maybe jitter will be caused by varying solutions when the up is close the the normal. Rejecting corrections when the projected vector is small could be a workaround
+            let knee_target = knee_circle_center + squished_up;
+            gizmos.line(knee_circle_center, knee_target, Color::srgb(0.5, 0.5, 0.));
+            gizmos.sphere(knee_target, Quat::IDENTITY, 0.2, Color::srgb(0., 1., 0.));
+            //let vertical_rot = (-t0.up()).xz().angle_between(target_direction.xz());
+            //target_direction = (arm.target - root_transform.translation()).normalize();
+            let mut knee_direction = knee_target - root_transform.translation();
+            knee_direction = (arm.target - root_transform.translation()).normalize();
+            let lean_rot = t0.up().xy().angle_between(knee_direction.xy());
+            let vertical_rot = t0.right().xz().angle_between(knee_direction.xz());
+            gizmos.line(root_transform.translation(), root_transform.translation() + t0.right().xz().extend(0.) * 2., Color::srgb(0., 0., 1.));
+            gizmos.line(root_transform.translation(), root_transform.translation() + knee_direction.xz().extend(0.) * 2., Color::srgb(1., 1., 1.));
+            if (lean_rot.is_nan()) {
+                println!("Rot nan");
+                continue;
+            }
+            //println!("vertical_rot: {}", vertical_rot.to_degrees());
+           // t0.rotate(Quat::from_euler(EulerRot::XYZ, 0., 0., lean_rot));
+            //t0.rotation = Quat::from_euler(EulerRot::XYZ, 0. ,0., lean_rot);
+        }
+    }
+}
+
+fn squish_on_plane(v: Vec3, normal: Vec3, radius: f32) -> Vec3 {
+    let projected = project_onto_plane(v, normal);
+    return projected.normalize() * radius;
+}
+
+fn project_onto_plane(v: Vec3, normal: Vec3) -> Vec3 {
+    let dot_product = v.dot(normal);
+    let projection = normal * dot_product;
+    return (v - projection) * dot_product;
+}
+/* 
+fn handle_ik(
+
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut arm_query: Query<(Entity, &IKArm)>,
@@ -143,6 +204,7 @@ fn handle_ik(
         }
     }
 }
+    */ */
 
 fn calc_angles(transform: &GlobalTransform, dir: Vec3) -> (f32, f32) {
     let y = (-transform.right()).xz().angle_between(dir.xz());

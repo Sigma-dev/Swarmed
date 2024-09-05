@@ -18,8 +18,6 @@ pub fn spawn_spider(
         Movable,
     )).id();
 
-    //spawn_test_arm(&mut commands, &asset_server, target);
-
     let legs_info: Vec<(Entity, Vec3)> = spawn_legs(&mut commands, &asset_server);
 
     commands.spawn((
@@ -34,18 +32,29 @@ pub fn spawn_spider(
     ));
 }
 
-fn spawn_test_arm(
+pub fn spawn_test_arm(
     mut commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-    target: Entity,
+    mut meshes: &mut ResMut<Assets<Mesh>>,
+    mut materials: &mut ResMut<Assets<StandardMaterial>>
 ) {
+    let target = commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(0.1, 0.1, 0.1)),
+            transform: Transform::from_xyz(0.2, 0.3, 0.0),
+            material: materials.add(Color::srgb_u8(10, 10, 10)),
+            ..default()
+        },
+        Movable,
+    )).id();
+
     commands.spawn((SceneBundle {
         scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("leg/leg.glb")),
-        ..default()
+            .load(GltfAssetLabel::Scene(0).from_asset("leg/leg2.glb")),
+            ..default()
         }, 
         IKArm::IKArm { 
-            target: Vec3{x: 1., y: 0., z: 1.},
+            target: Vec3{x: 1., y: 1., z: 1.},
             up: Vec3::Y
         },
         Name::new("Arm"),
