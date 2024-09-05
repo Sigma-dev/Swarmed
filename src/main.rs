@@ -38,6 +38,7 @@ fn modify_meshes(
       .entity(trigger.entity())
       .insert(NoBackfaceCulling);
 }
+
 fn steam_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut client: ResMut<NetworkClient>,

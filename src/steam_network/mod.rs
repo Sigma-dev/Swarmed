@@ -4,7 +4,7 @@ use bevy::{app::{App, Plugin, Startup, Update}, asset::Assets, color::Color, inp
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
 use flume::{Receiver, Sender};
 use ::serde::{Deserialize, Serialize};
-use steamworks::{networking_types::{NetworkingIdentity, SendFlags}, LobbyChatUpdate};
+use steamworks::{networking_types::{ NetworkingIdentity, SendFlags}, LobbyChatUpdate};
 pub struct SteamNetworkPlugin;
 
 impl Plugin for SteamNetworkPlugin {
@@ -302,6 +302,8 @@ fn steam_events(
             SteamworksEvent::UserStatsReceived(_) => println!("UserStatsReceived"),
             SteamworksEvent::UserStatsStored(_) => println!("User stats stored"),
             SteamworksEvent::ValidateAuthTicketResponse(_) => println!("Validate auth ticket"),
+            SteamworksEvent::NetworkingMessagesSessionRequest(_) => println!("Message session request"),
+            SteamworksEvent::RelayNetworkStatusCallback(_) => println!("Relay network status"),
         }
        /*  if let SteamworksEvent::GameLobbyJoinRequested(info) = ev {
             println!("Trying to join: {}", info.lobby_steam_id.raw());
