@@ -117,10 +117,10 @@ pub struct LobbyIdCallbackChannel {
 }
 
 fn lobby_joined(client: &mut ResMut<NetworkClient>, info: &LobbyChatUpdate) {
-    println!("Lobby joined: {}", info.lobby.raw());
+    println!("Somebody joined your lobby: {:?}", info.user_changed);
     
    // client.lobby_status = LobbyStatus::InLobby(lobby)
-    //client.send_message(NetworkData::Handshake, true);
+    client.send_message(NetworkData::Handshake, true);
 }
 
 /* 
@@ -251,9 +251,16 @@ fn steam_start(
     mut commands: Commands,
 ) {
     println!("Connected: {}", steam_client.user().steam_id().raw());
+    steam_client.networking_utils().init_relay_network_access();
     steam_client.networking_messages().session_request_callback(
         |res| {
+            println!("Accepted");
             res.accept()
+        }
+    );
+    steam_client.networking_messages().session_failed_callback(
+        |res| {
+            println!("Session Failed: {:?}", res.end_reason().unwrap());
         }
     );
     let (tx, rx) = flume::unbounded();
@@ -284,8 +291,14 @@ fn steam_events(
                 println!("Chat Update");
                 match info.member_state_change {
                     bevy_steamworks::ChatMemberStateChange::Entered => lobby_joined(&mut client, info),
-                    bevy_steamworks::ChatMemberStateChange::Left => client.lobby_status = LobbyStatus::OutOfLobby,
-                    bevy_steamworks::ChatMemberStateChange::Disconnected => client.lobby_status = LobbyStatus::OutOfLobby,
+                    bevy_steamworks::ChatMemberStateChange::Left => {
+                        println!("Other left lobby");
+                        client.lobby_status = LobbyStatus::OutOfLobby
+                    }
+                    bevy_steamworks::ChatMemberStateChange::Disconnected => {
+                        println!("Other disconnected from lobby");
+                        client.lobby_status = LobbyStatus::OutOfLobby;
+                    }
                     _ => println!("other")
                 }
             },
