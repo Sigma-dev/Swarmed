@@ -120,7 +120,7 @@ fn lobby_joined(client: &mut ResMut<NetworkClient>, info: &LobbyChatUpdate) {
     println!("Somebody joined your lobby: {:?}", info.user_changed);
     
    // client.lobby_status = LobbyStatus::InLobby(lobby)
-    client.send_message(NetworkData::Handshake, true);
+    //client.send_message(NetworkData::Handshake, true);
 }
 
 /* 
