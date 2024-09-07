@@ -255,7 +255,10 @@ fn steam_start(
     steam_client.networking_messages().session_request_callback(
         |res| {
             println!("Accepted");
-            res.accept()
+            match res.accept() {
+                true => println!("Succesfully accepted"),
+                false => println!("Failed to accept"),
+            }
         }
     );
     steam_client.networking_messages().session_failed_callback(
