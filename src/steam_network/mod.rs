@@ -15,7 +15,7 @@ impl Plugin for SteamNetworkPlugin {
         .add_plugins(SteamworksPlugin::init_app(480).unwrap())
         .add_systems(Startup, steam_start)
         .add_systems(Update, (steam_system, steam_events, receive_messages))
-        .add_systems(Update, handle_networked_transform.run_if(on_timer(Duration::from_millis(100))),)
+        .add_systems(FixedUpdate, handle_networked_transform)
 
         .add_event::<PositionUpdate>();
     }
