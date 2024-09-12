@@ -4,7 +4,7 @@ use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::spawn_spider;
-use steam_network::{FilePath, LobbyIdCallbackChannel, NetworkClient, NetworkData, NetworkId, SteamNetworkPlugin};
+use steam_network::{FilePath, LobbyIdCallbackChannel, NetworkClient, NetworkData, NetworkIdentity, SteamNetworkPlugin};
 use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;

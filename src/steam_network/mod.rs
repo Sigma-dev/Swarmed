@@ -1,6 +1,6 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
-use bevy::{app::{App, FixedUpdate, Plugin, Startup, Update}, asset::Assets, color::Color, input::ButtonInput, math::{Vec3, VectorSpace}, pbr::{PbrBundle, StandardMaterial}, prelude::{default, Commands, Component, Cuboid, Event, EventReader, EventWriter, KeyCode, Mesh, Query, Res, ResMut, Resource, Transform, With}, scene::{ron::de::Position, serde}};
+use bevy::{app::{App, FixedUpdate, Plugin, Startup, Update}, asset::Assets, color::Color, input::ButtonInput, math::{Vec3, VectorSpace}, pbr::{PbrBundle, StandardMaterial}, prelude::{default, Commands, Component, Cuboid, Event, EventReader, EventWriter, IntoSystemConfigs, KeyCode, Mesh, Query, Res, ResMut, Resource, Transform, With}, scene::{ron::de::Position, serde}, time::common_conditions::on_timer};
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
 use flume::{Receiver, Sender};
 use ::serde::{Deserialize, Serialize};
@@ -15,7 +15,8 @@ impl Plugin for SteamNetworkPlugin {
         .add_plugins(SteamworksPlugin::init_app(480).unwrap())
         .add_systems(Startup, steam_start)
         .add_systems(Update, (steam_system, steam_events, receive_messages))
-        .add_systems(FixedUpdate, handle_networked_transform)
+        .add_systems(Update, handle_networked_transform.run_if(on_timer(Duration::from_millis(100))),)
+
         .add_event::<PositionUpdate>();
     }
 }
@@ -26,7 +27,7 @@ pub struct NetworkClient {
     lobby_status: LobbyStatus,
     steam_client: bevy_steamworks::Client,
     channel: LobbyIdCallbackChannel,
-    network_id_counter: u32,
+    instantiation_id: u32,
     not_yet_handshaken: Vec<SteamId>
 }
 
@@ -82,7 +83,7 @@ impl NetworkClient {
     }
     pub fn send_message(&self, data: &NetworkData, target: SteamId) -> Result<(), String> {
         if !self.is_in_lobby() { return Err("Not in a lobby".to_string()); };
-        println!("Sending to: {}", target.raw());
+       // println!("Sending to: {}", target.raw());
         let serialize_data = rmp_serde::to_vec(&data);
         let serialized = serialize_data.map_err(|err| err.to_string())?;
         let data_arr = serialized.as_slice();
@@ -116,20 +117,13 @@ impl NetworkClient {
         path: FilePath,
         pos: Vec3,
     ) -> Result<(), String> {
-        if self.is_lobby_owner()? {
-            self.instantiate_as_owner(path, pos);
-        } else {
-            self.send_to_owner(&NetworkData::AskInstantiate(path, pos));
-        }
-        return Ok(());
+        let instantiation_id = self.get_new_instantiation_id();
+        self.send_message_all(NetworkData::Instantiate(NetworkIdentity { id: instantiation_id, owner_id: self.id }, path, pos), false)
     }
-    fn instantiate_as_owner(
-        &mut self,
-        path: FilePath,
-        pos: Vec3,
-    ) {
-        self.send_message_all(NetworkData::Instantiate(NetworkId(self.network_id_counter), path, pos), false);
-        self.network_id_counter += 1;
+    pub fn get_new_instantiation_id(&mut self) -> u32 {
+        let id = self.instantiation_id;
+        self.instantiation_id += 1;
+        return id;
     }
 }
 
@@ -140,7 +134,10 @@ enum LobbyStatus {
 }
 
 #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
-pub struct NetworkId(pub u32);
+pub struct NetworkIdentity {
+    pub id: u32,
+    pub owner_id: SteamId
+}
 
 #[derive(PartialEq)]
 enum NetworkSync {
@@ -158,18 +155,17 @@ pub struct FilePath(pub u32);
 
 #[derive(Event)]
 struct PositionUpdate {
-    network_id: NetworkId, 
+    network_identity: NetworkIdentity, 
     new_position: Vec3
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum NetworkData {
     Handshake,
-    SendObjectData(NetworkId, i8, Vec<u8>), //NetworkId of receiver, id of action, data of action
-    AskInstantiate(FilePath, Vec3), //Used by everyone to : NetworkId of created object, filepath of prefab, starting position
-    Instantiate(NetworkId, FilePath, Vec3), //Only used by the lobby owner: NetworkId of created object, filepath of prefab, starting position
-    PositionUpdate(NetworkId, Vec3), //NetworkId of receiver, new position
-    Destroy(NetworkId), //NetworkId of object to be destroyed
+    SendObjectData(NetworkIdentity, i8, Vec<u8>), //NetworkId of receiver, id of action, data of action
+    Instantiate(NetworkIdentity, FilePath, Vec3), //NetworkId of created object, filepath of prefab, starting position
+    PositionUpdate(NetworkIdentity, Vec3), //NetworkId of receiver, new position
+    Destroy(NetworkIdentity), //NetworkId of object to be destroyed
 }
 
 pub struct LobbyIdCallbackChannel {
@@ -202,7 +198,7 @@ fn send_message(steam_client: &Res<Client>, lobby_id: LobbyId, data: NetworkData
 }*/
 
 fn instantiate(
-    network_id: NetworkId,
+    network_id: NetworkIdentity,
     path: FilePath,
     pos: Vec3,
     mut commands: &mut Commands,
@@ -218,7 +214,7 @@ fn instantiate(
             transform: Transform::from_translation(pos),
             ..default()
             },
-            NetworkId::from(network_id),
+            network_id.clone(),
             NetworkedTransform{synced: true},
             Movable
         ));
@@ -227,21 +223,22 @@ fn instantiate(
 
 fn handle_networked_transform(
     client: Res<NetworkClient>,
-    mut networked_transform_query: Query<(&mut Transform, &NetworkId, &NetworkedTransform)>,
+    mut networked_transform_query: Query<(&mut Transform, &NetworkIdentity, &NetworkedTransform)>,
     mut ev_reader: EventReader<PositionUpdate>,
 ) {
     let mut updates = Vec::new();
     for ev in ev_reader.read() {
         updates.push(ev)
     }
-    for (mut transform, network_id, networked_transform) in networked_transform_query.iter_mut() {
+    for (mut transform, network_identity, networked_transform) in networked_transform_query.iter_mut() {
         for update in &updates {
-            if update.network_id == *network_id {
+            if update.network_identity == *network_identity {
                 transform.translation = update.new_position;
             }
         }
         if !networked_transform.synced { continue; };
-        client.send_message_all(NetworkData::PositionUpdate(*network_id, transform.translation), true);
+        if client.id != network_identity.owner_id { continue; };
+        client.send_message_all(NetworkData::PositionUpdate(*network_identity, transform.translation), true);
     }
 }
 
@@ -253,8 +250,8 @@ fn receive_messages(
     mut ev_pos_update: EventWriter<PositionUpdate>,
 ) {
     let messages: Vec<steamworks::networking_types::NetworkingMessage<steamworks::ClientManager>> = client.steam_client.networking_messages().receive_messages_on_channel(0, 1);
-    if (messages.len() > 0 ) {
-        println!("Received {} messages", messages.len())
+    if (messages.len() > 0) {
+       // println!("Received {} messages", messages.len())
     }
     for message in messages {
         let sender = message.identity_peer().steam_id().unwrap();
@@ -263,9 +260,8 @@ fn receive_messages(
         match data_try {
             Ok(data) => match data {
                 NetworkData::SendObjectData(id, action_id, action_data) => println!("Action"),
-                NetworkData::AskInstantiate(file, position) => client.instantiate_as_owner(file, position),
                 NetworkData::Instantiate(id, prefab_path, pos) => instantiate(id, prefab_path, pos, &mut commands, &mut meshes, &mut materials),
-                NetworkData::PositionUpdate(id, pos) => {ev_pos_update.send(PositionUpdate { network_id: id, new_position: pos }); },
+                NetworkData::PositionUpdate(id, pos) => {ev_pos_update.send(PositionUpdate { network_identity: id, new_position: pos }); },
                 NetworkData::Destroy(id) => println!("Destroyed"),
                 NetworkData::Handshake => {
                     println!("Received handshake, sending response");
@@ -355,7 +351,7 @@ fn steam_start(
         lobby_status: LobbyStatus::OutOfLobby,
         steam_client: steam_client.clone(),
         channel: LobbyIdCallbackChannel { tx, rx },
-        network_id_counter: 0,
+        instantiation_id: 0,
         not_yet_handshaken: Vec::new()
     });
 }
