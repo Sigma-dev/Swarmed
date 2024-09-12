@@ -4,7 +4,7 @@ use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::spawn_spider;
-use steam_network::{FilePath, LobbyIdCallbackChannel, NetworkClient, NetworkData, NetworkIdentity, SteamNetworkPlugin};
+use steam_network::{FilePath, LobbyIdCallbackChannel, NetworkClient, NetworkData, NetworkIdentity, NetworkedTransform, SteamNetworkPlugin};
 use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;
@@ -83,11 +83,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
 }
 
 fn movable(
-    mut transform_query: Query<&mut Transform, With<Movable>>,
+    mut transform_query: Query<(&mut Transform, Option<&NetworkIdentity>), With<Movable>>,
     keys: Res<ButtonInput<KeyCode>>,
+    client: Option<Res<NetworkClient>>
 ) {
-    for (mut movable_transform) in transform_query.iter_mut() {
+    for (mut movable_transform, network_identity) in transform_query.iter_mut() {
         let mut vec = Vec3::ZERO;
+        if let Some(identity) = network_identity {
+            if let Some(ref cli) = client {
+                if identity.owner_id != cli.id {
+                    continue;
+                }
+            }
+        }
         if keys.pressed(KeyCode::KeyW) {
             vec.z += 1.0
         }

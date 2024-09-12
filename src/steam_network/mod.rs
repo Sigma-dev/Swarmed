@@ -23,8 +23,8 @@ impl Plugin for SteamNetworkPlugin {
 
 #[derive(Resource)]
 pub struct NetworkClient {
-    id: SteamId,
-    lobby_status: LobbyStatus,
+    pub id: SteamId,
+    pub lobby_status: LobbyStatus,
     steam_client: bevy_steamworks::Client,
     channel: LobbyIdCallbackChannel,
     instantiation_id: u32,
@@ -146,8 +146,8 @@ enum NetworkSync {
 }
 
 #[derive(Component)]
-struct NetworkedTransform {
-    synced: bool
+pub struct NetworkedTransform {
+    pub synced: bool
 }
 
 #[derive(Serialize, Deserialize, Debug)]
