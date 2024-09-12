@@ -1,10 +1,12 @@
 use std::path::Path;
 
-use bevy::{app::{App, Plugin, Startup, Update}, asset::Assets, color::Color, input::ButtonInput, math::{Vec3, VectorSpace}, pbr::{PbrBundle, StandardMaterial}, prelude::{default, Commands, Component, Cuboid, EventReader, KeyCode, Mesh, Query, Res, ResMut, Resource, Transform, With}, scene::serde};
+use bevy::{app::{App, FixedUpdate, Plugin, Startup, Update}, asset::Assets, color::Color, input::ButtonInput, math::{Vec3, VectorSpace}, pbr::{PbrBundle, StandardMaterial}, prelude::{default, Commands, Component, Cuboid, Event, EventReader, EventWriter, KeyCode, Mesh, Query, Res, ResMut, Resource, Transform, With}, scene::{ron::de::Position, serde}};
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
 use flume::{Receiver, Sender};
 use ::serde::{Deserialize, Serialize};
 use steamworks::{networking_types::{ NetConnectionEnd, NetworkingIdentity, SendFlags}, LobbyChatUpdate};
+
+use crate::Movable;
 pub struct SteamNetworkPlugin;
 
 impl Plugin for SteamNetworkPlugin {
@@ -12,7 +14,9 @@ impl Plugin for SteamNetworkPlugin {
         app
         .add_plugins(SteamworksPlugin::init_app(480).unwrap())
         .add_systems(Startup, steam_start)
-        .add_systems(Update, (steam_system, steam_events, receive_messages));
+        .add_systems(Update, (steam_system, steam_events, receive_messages))
+        .add_systems(FixedUpdate, handle_networked_transform)
+        .add_event::<PositionUpdate>();
     }
 }
 
@@ -70,28 +74,62 @@ impl NetworkClient {
         }
         return Ok(()); 
     }
-    pub fn send_message(&self, data: &NetworkData, target: SteamId) {
-        if !self.is_in_lobby() { return };
-        
+    pub fn send_to_owner(&self, data: &NetworkData) -> Result<(), String> {
+        let lobby_id = self.get_lobby_id()?;
+        let owner = self.get_lobby_owner()?;
+        self.send_message(data, owner);
+        Ok(())
+    }
+    pub fn send_message(&self, data: &NetworkData, target: SteamId) -> Result<(), String> {
+        if !self.is_in_lobby() { return Err("Not in a lobby".to_string()); };
         println!("Sending to: {}", target.raw());
         let serialize_data = rmp_serde::to_vec(&data);
-        let Ok(serialized) = serialize_data else {return;};
+        let serialized = serialize_data.map_err(|err| err.to_string())?;
         let data_arr = serialized.as_slice();
         let network_identity = NetworkingIdentity::new_steam_id(target);
         let res = self.steam_client.networking_messages().send_message_to_user(network_identity, SendFlags::RELIABLE, data_arr, 0);
         match res {
-            Ok(_) => println!("Message sent succesfully"),
-            Err(err) => println!("Message error: {}", err.to_string()),
+            Ok(_) => return Ok(()),
+            Err(err) => return Err(format!("Message error: {}", err.to_string())),
         }
     }
     pub fn is_in_lobby(&self) -> bool {
         return self.lobby_status != LobbyStatus::OutOfLobby;
+    }
+    pub fn is_lobby_owner(&self) ->  Result<bool, String> {
+        let owner = self.get_lobby_owner()?;
+        return Ok(owner == self.id);
     }
     pub fn get_lobby_id(&self) -> Result<LobbyId, String> {
         match self.lobby_status {
             LobbyStatus::InLobby(lobby_id) => return Ok(lobby_id),
             LobbyStatus::OutOfLobby => return Err("Out of lobby".to_owned()),
         }
+    }
+    pub fn get_lobby_owner(&self) -> Result<SteamId, String> {
+        let lobby_id = self.get_lobby_id()?;
+        let owner = self.steam_client.matchmaking().lobby_owner(lobby_id);
+        return Ok(owner);
+    }
+    pub fn instantiate(
+        &mut self,
+        path: FilePath,
+        pos: Vec3,
+    ) -> Result<(), String> {
+        if self.is_lobby_owner()? {
+            self.instantiate_as_owner(path, pos);
+        } else {
+            self.send_to_owner(&NetworkData::AskInstantiate(path, pos));
+        }
+        return Ok(());
+    }
+    fn instantiate_as_owner(
+        &mut self,
+        path: FilePath,
+        pos: Vec3,
+    ) {
+        self.send_message_all(NetworkData::Instantiate(NetworkId(self.network_id_counter), path, pos), false);
+        self.network_id_counter += 1;
     }
 }
 
@@ -101,7 +139,7 @@ enum LobbyStatus {
     OutOfLobby
 }
 
-#[derive(Component, Serialize, Deserialize, Debug, Copy, Clone)]
+#[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
 pub struct NetworkId(pub u32);
 
 #[derive(PartialEq)]
@@ -118,11 +156,18 @@ struct NetworkedTransform {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FilePath(pub u32);
 
+#[derive(Event)]
+struct PositionUpdate {
+    network_id: NetworkId, 
+    new_position: Vec3
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum NetworkData {
     Handshake,
     SendObjectData(NetworkId, i8, Vec<u8>), //NetworkId of receiver, id of action, data of action
-    Instantiate(NetworkId, FilePath, Vec3), //NetworkId of created object, filepath of prefab, starting position
+    AskInstantiate(FilePath, Vec3), //Used by everyone to : NetworkId of created object, filepath of prefab, starting position
+    Instantiate(NetworkId, FilePath, Vec3), //Only used by the lobby owner: NetworkId of created object, filepath of prefab, starting position
     PositionUpdate(NetworkId, Vec3), //NetworkId of receiver, new position
     Destroy(NetworkId), //NetworkId of object to be destroyed
 }
@@ -174,18 +219,29 @@ fn instantiate(
             ..default()
             },
             NetworkId::from(network_id),
-            NetworkedTransform{synced: true}
+            NetworkedTransform{synced: true},
+            Movable
         ));
     }
 }
 
 fn handle_networked_transform(
     client: Res<NetworkClient>,
-    networked_transform_query: Query<(&Transform, &NetworkId, &NetworkedTransform),>
+    mut networked_transform_query: Query<(&mut Transform, &NetworkId, &NetworkedTransform)>,
+    mut ev_reader: EventReader<PositionUpdate>,
 ) {
-    for (transform, network_id, networked_transform) in networked_transform_query.iter() {
+    let mut updates = Vec::new();
+    for ev in ev_reader.read() {
+        updates.push(ev)
+    }
+    for (mut transform, network_id, networked_transform) in networked_transform_query.iter_mut() {
+        for update in &updates {
+            if update.network_id == *network_id {
+                transform.translation = update.new_position;
+            }
+        }
         if !networked_transform.synced { continue; };
-      //  client.send_message(NetworkData::PositionUpdate(*network_id, transform.translation), true)
+        client.send_message_all(NetworkData::PositionUpdate(*network_id, transform.translation), true);
     }
 }
 
@@ -194,6 +250,7 @@ fn receive_messages(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut ev_pos_update: EventWriter<PositionUpdate>,
 ) {
     let messages: Vec<steamworks::networking_types::NetworkingMessage<steamworks::ClientManager>> = client.steam_client.networking_messages().receive_messages_on_channel(0, 1);
     if (messages.len() > 0 ) {
@@ -206,8 +263,9 @@ fn receive_messages(
         match data_try {
             Ok(data) => match data {
                 NetworkData::SendObjectData(id, action_id, action_data) => println!("Action"),
+                NetworkData::AskInstantiate(file, position) => client.instantiate_as_owner(file, position),
                 NetworkData::Instantiate(id, prefab_path, pos) => instantiate(id, prefab_path, pos, &mut commands, &mut meshes, &mut materials),
-                NetworkData::PositionUpdate(id, pos) => println!("Position updated {}", pos),
+                NetworkData::PositionUpdate(id, pos) => {ev_pos_update.send(PositionUpdate { network_id: id, new_position: pos }); },
                 NetworkData::Destroy(id) => println!("Destroyed"),
                 NetworkData::Handshake => {
                     println!("Received handshake, sending response");
@@ -257,7 +315,7 @@ fn steam_system(
     }
     */
     for to_handshake in &client.not_yet_handshaken {
-        client.send_message(&NetworkData::Handshake, *to_handshake)
+        client.send_message(&NetworkData::Handshake, *to_handshake);
     }
     if let Ok(lobby_id) = rx.try_recv() {
         //game_state.set(ClientState::InLobby);
