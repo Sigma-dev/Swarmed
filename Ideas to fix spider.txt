@@ -1,0 +1,28 @@
+Ideas to fix spider
+
+Solution 1: Fix the fix (point the knee afterwards)
+Problem: For some reason, rotating the knee every frame to try and point it results in lots of jitter. This could
+be because the difference calculation is wrong, or that it gives a correction when there is no problem.
+
+Solution 2: Integrate it into a new system
+Problem: If a time fix can't work, then we need to integrate the orientation into the ik solving itself.
+First solve the problem of putting the knee so that it is at distance l2 of the target and l1 of the root and at the same time is the closest it can be from the point defined by offsetting the center of the knee rotation towards the up direction.
+Then from that knee position, solve to get to the target.
+
+Implementation:
+Compute where the knee possible rotations circles would be in world space.
+Squish the up vector so that it is aligned with the circle. if it is orthogonal or the length is too small, stop the process here.
+Normalize the vector and get the point on the circle where it is.
+Solve t0 rotation to get the knee to that point
+Solve t1 to get the end point to the target.
+
+Implementation steps:
+Get the rotation circle center position V
+Gizmo the rotation circle facing the correct direction V
+Gizmo the up vector V
+Make a way to rotate the up vector in every direction
+Find a way to squish the up vector onto the circle V
+Gizmo the squished up vector V
+Gizmo the point on the circle that the squished up vector points towards V
+Get the knee on that point
+Get the the end of the leg on the target

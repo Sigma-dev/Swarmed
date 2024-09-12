@@ -1,0 +1,3 @@
+Ideas to fix/improve steam network
+
+Improve 1: Add callback LobbyDataUpdate_t to steamworks-rs and bevy_steamworks.

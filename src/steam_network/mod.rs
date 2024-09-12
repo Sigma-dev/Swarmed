@@ -4,7 +4,7 @@ use bevy::{app::{App, Plugin, Startup, Update}, asset::Assets, color::Color, inp
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
 use flume::{Receiver, Sender};
 use ::serde::{Deserialize, Serialize};
-use steamworks::{networking_types::{ NetworkingIdentity, SendFlags}, LobbyChatUpdate};
+use steamworks::{networking_types::{ NetConnectionEnd, NetworkingIdentity, SendFlags}, LobbyChatUpdate};
 pub struct SteamNetworkPlugin;
 
 impl Plugin for SteamNetworkPlugin {
@@ -23,6 +23,7 @@ pub struct NetworkClient {
     steam_client: bevy_steamworks::Client,
     channel: LobbyIdCallbackChannel,
     network_id_counter: u32,
+    not_yet_handshaken: Vec<SteamId>
 }
 
 impl NetworkClient {
@@ -59,22 +60,37 @@ impl NetworkClient {
         self.steam_client.matchmaking().leave_lobby(lobby);
         self.lobby_status = LobbyStatus::OutOfLobby;
     }
-    pub fn send_message(&self, data: NetworkData, only_others: bool) {
-        let LobbyStatus::InLobby(lobby_id) = self.lobby_status else { return; };
+    pub fn send_message_all(&self, data: NetworkData, only_others: bool) -> Result<(), String> {
+        let lobby_id = self.get_lobby_id()?;
         for player in self.steam_client.matchmaking().lobby_members(lobby_id) {
             if only_others && player == self.id {
                 continue;
             }
-            println!("Sending to: {}", player.raw());
-            let serialize_data = rmp_serde::to_vec(&data);
-            let Ok(serialized) = serialize_data else {return;};
-            let data_arr = serialized.as_slice();
-            let network_identity = NetworkingIdentity::new_steam_id(player);
-            let res = self.steam_client.networking_messages().send_message_to_user(network_identity, SendFlags::RELIABLE, data_arr, 0);
-            match res {
-                Ok(_) => println!("Message sent succesfully"),
-                Err(err) => println!("Message error: {}", err.to_string()),
-            }
+            self.send_message(&data, player);
+        }
+        return Ok(()); 
+    }
+    pub fn send_message(&self, data: &NetworkData, target: SteamId) {
+        if !self.is_in_lobby() { return };
+        
+        println!("Sending to: {}", target.raw());
+        let serialize_data = rmp_serde::to_vec(&data);
+        let Ok(serialized) = serialize_data else {return;};
+        let data_arr = serialized.as_slice();
+        let network_identity = NetworkingIdentity::new_steam_id(target);
+        let res = self.steam_client.networking_messages().send_message_to_user(network_identity, SendFlags::RELIABLE, data_arr, 0);
+        match res {
+            Ok(_) => println!("Message sent succesfully"),
+            Err(err) => println!("Message error: {}", err.to_string()),
+        }
+    }
+    pub fn is_in_lobby(&self) -> bool {
+        return self.lobby_status != LobbyStatus::OutOfLobby;
+    }
+    pub fn get_lobby_id(&self) -> Result<LobbyId, String> {
+        match self.lobby_status {
+            LobbyStatus::InLobby(lobby_id) => return Ok(lobby_id),
+            LobbyStatus::OutOfLobby => return Err("Out of lobby".to_owned()),
         }
     }
 }
@@ -118,7 +134,7 @@ pub struct LobbyIdCallbackChannel {
 
 fn lobby_joined(client: &mut ResMut<NetworkClient>, info: &LobbyChatUpdate) {
     println!("Somebody joined your lobby: {:?}", info.user_changed);
-    
+    client.not_yet_handshaken.push(info.user_changed);
    // client.lobby_status = LobbyStatus::InLobby(lobby)
     //client.send_message(NetworkData::Handshake, true);
 }
@@ -169,12 +185,12 @@ fn handle_networked_transform(
 ) {
     for (transform, network_id, networked_transform) in networked_transform_query.iter() {
         if !networked_transform.synced { continue; };
-        client.send_message(NetworkData::PositionUpdate(*network_id, transform.translation), true)
+      //  client.send_message(NetworkData::PositionUpdate(*network_id, transform.translation), true)
     }
 }
 
 fn receive_messages(
-    client: Res<NetworkClient>, 
+    mut client: ResMut<NetworkClient>, 
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -184,6 +200,7 @@ fn receive_messages(
         println!("Received {} messages", messages.len())
     }
     for message in messages {
+        let sender = message.identity_peer().steam_id().unwrap();
         let serialized_data = message.data();
         let data_try: Result<NetworkData, _> = rmp_serde::from_slice(serialized_data);
         match data_try {
@@ -194,6 +211,7 @@ fn receive_messages(
                 NetworkData::Destroy(id) => println!("Destroyed"),
                 NetworkData::Handshake => {
                     println!("Received handshake, sending response");
+                    client.not_yet_handshaken.retain(|value| *value != sender);
                     //client.send_message(NetworkData::Handshake, true);
                 },
             },
@@ -238,10 +256,16 @@ fn steam_system(
         }
     }
     */
+    for to_handshake in &client.not_yet_handshaken {
+        client.send_message(&NetworkData::Handshake, *to_handshake)
+    }
     if let Ok(lobby_id) = rx.try_recv() {
         //game_state.set(ClientState::InLobby);
         client.lobby_status = LobbyStatus::InLobby(lobby_id);
         println!("Joined Lobby: {}", lobby_id.raw());
+        let mut new = client.steam_client.matchmaking().lobby_members(lobby_id);
+        new.retain(|value| *value != client.id);
+        client.not_yet_handshaken.append(&mut new);
         //client.send_message(NetworkData::Handshake, true);
     }
 }
@@ -263,7 +287,7 @@ fn steam_start(
     );
     steam_client.networking_messages().session_failed_callback(
         |res| {
-            println!("Session Failed: {:?}", res.end_reason().unwrap());
+            println!("Session Failed: {:?}", res.end_reason().unwrap_or(NetConnectionEnd::Other(-42)));
         }
     );
     let (tx, rx) = flume::unbounded();
@@ -274,6 +298,7 @@ fn steam_start(
         steam_client: steam_client.clone(),
         channel: LobbyIdCallbackChannel { tx, rx },
         network_id_counter: 0,
+        not_yet_handshaken: Vec::new()
     });
 }
 
