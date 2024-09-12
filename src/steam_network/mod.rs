@@ -240,7 +240,7 @@ fn handle_networked_transform(
         }
         if !networked_transform.synced { continue; };
         if client.id != network_identity.owner_id { 
-            transform.translation = transform.translation.lerp(networked_transform.target, 1. * time.delta_seconds());
+            transform.translation = transform.translation.lerp(networked_transform.target, 10. * time.delta_seconds());
             continue; 
         };
         client.send_message_all(NetworkData::PositionUpdate(*network_identity, transform.translation), true);
