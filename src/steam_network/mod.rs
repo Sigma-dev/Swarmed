@@ -1,6 +1,6 @@
 use std::{path::Path, time::Duration};
 
-use bevy::{app::{App, FixedUpdate, Plugin, Startup, Update}, asset::Assets, color::Color, input::ButtonInput, math::{Vec3, VectorSpace}, pbr::{PbrBundle, StandardMaterial}, prelude::{default, Commands, Component, Cuboid, Event, EventReader, EventWriter, IntoSystemConfigs, KeyCode, Mesh, Query, Res, ResMut, Resource, Transform, With}, scene::{ron::de::Position, serde}, time::common_conditions::on_timer};
+use bevy::{app::{App, FixedUpdate, Plugin, Startup, Update}, asset::Assets, color::Color, input::ButtonInput, math::{Vec3, VectorSpace}, pbr::{PbrBundle, StandardMaterial}, prelude::{default, Commands, Component, Cuboid, Event, EventReader, EventWriter, IntoSystemConfigs, KeyCode, Mesh, Query, Res, ResMut, Resource, Transform, With}, scene::{ron::de::Position, serde}, time::{common_conditions::on_timer, Time}};
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
 use flume::{Receiver, Sender};
 use ::serde::{Deserialize, Serialize};
@@ -147,7 +147,8 @@ enum NetworkSync {
 
 #[derive(Component)]
 pub struct NetworkedTransform {
-    pub synced: bool
+    pub synced: bool,
+    pub target: Vec3,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -215,7 +216,7 @@ fn instantiate(
             ..default()
             },
             network_id.clone(),
-            NetworkedTransform{synced: true},
+            NetworkedTransform{synced: true, target: pos},
             Movable { speed: 10. }
         ));
     }
@@ -223,21 +224,25 @@ fn instantiate(
 
 fn handle_networked_transform(
     client: Res<NetworkClient>,
-    mut networked_transform_query: Query<(&mut Transform, &NetworkIdentity, &NetworkedTransform)>,
+    mut networked_transform_query: Query<(&mut Transform, &NetworkIdentity, &mut NetworkedTransform)>,
     mut ev_reader: EventReader<PositionUpdate>,
+    time: Res<Time>
 ) {
     let mut updates = Vec::new();
     for ev in ev_reader.read() {
         updates.push(ev)
     }
-    for (mut transform, network_identity, networked_transform) in networked_transform_query.iter_mut() {
+    for (mut transform, network_identity, mut networked_transform) in networked_transform_query.iter_mut() {
         for update in &updates {
             if update.network_identity == *network_identity {
-                transform.translation = update.new_position;
+                networked_transform.target = update.new_position;
             }
         }
         if !networked_transform.synced { continue; };
-        if client.id != network_identity.owner_id { continue; };
+        if client.id != network_identity.owner_id { 
+            transform.translation = transform.translation.lerp(networked_transform.target, 1. * time.delta_seconds());
+            continue; 
+        };
         client.send_message_all(NetworkData::PositionUpdate(*network_identity, transform.translation), true);
     }
 }
