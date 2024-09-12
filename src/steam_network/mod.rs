@@ -216,7 +216,7 @@ fn instantiate(
             },
             network_id.clone(),
             NetworkedTransform{synced: true},
-            Movable
+            Movable { speed: 10. }
         ));
     }
 }

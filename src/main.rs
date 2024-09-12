@@ -1,5 +1,5 @@
 use std::f32::{consts::*, NAN};
-use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
+use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::{mesh::{self, skinning::SkinnedMesh}, settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
@@ -13,12 +13,20 @@ mod spider;
 mod steam_network;
 
 #[derive(Component)]
-struct Movable;
+struct Movable {
+    pub speed: f32
+}
 
 fn main() {
     App::new()
         .add_plugins(SteamNetworkPlugin)
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(RenderPlugin {
+            render_creation: RenderCreation::Automatic(WgpuSettings {
+                backends: Some(Backends::VULKAN),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugins((IKArmPlugin, LegPlugin))
         .insert_resource(AmbientLight {
             brightness: 750.0,
@@ -83,11 +91,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
 }
 
 fn movable(
-    mut transform_query: Query<(&mut Transform, Option<&NetworkIdentity>), With<Movable>>,
+    mut transform_query: Query<(&mut Transform, Option<&NetworkIdentity>, &Movable)>,
     keys: Res<ButtonInput<KeyCode>>,
     client: Option<Res<NetworkClient>>
 ) {
-    for (mut movable_transform, network_identity) in transform_query.iter_mut() {
+    for (mut movable_transform, network_identity, movable) in transform_query.iter_mut() {
         let mut vec = Vec3::ZERO;
         if let Some(identity) = network_identity {
             if let Some(ref cli) = client {
@@ -114,6 +122,6 @@ fn movable(
         if keys.pressed(KeyCode::KeyE) {
             vec.y -= 1.0
         }
-        movable_transform.translation += vec * 0.01;
+        movable_transform.translation += vec * 0.01 * movable.speed;
     }
 }
