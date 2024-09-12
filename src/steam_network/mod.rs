@@ -70,7 +70,7 @@ impl NetworkClient {
             let Ok(serialized) = serialize_data else {return;};
             let data_arr = serialized.as_slice();
             let network_identity = NetworkingIdentity::new_steam_id(player);
-            let res = self.steam_client.networking_messages().send_message_to_user(network_identity, SendFlags::RELIABLE, &data_arr, 0);
+            let res = self.steam_client.networking_messages().send_message_to_user(network_identity, SendFlags::RELIABLE, data_arr, 0);
             match res {
                 Ok(_) => println!("Message sent succesfully"),
                 Err(err) => println!("Message error: {}", err.to_string()),
