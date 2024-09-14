@@ -1,5 +1,5 @@
 use std::f32::consts::PI;
-use bevy::{math::VectorSpace, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
+use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
 
 #[derive(Component)]
 pub struct IKArm {
@@ -82,36 +82,43 @@ fn handle_ik(
             gizmos.sphere(knee_target, Quat::IDENTITY, 0.2, Color::srgb(0., 1., 0.));
             //let vertical_rot = (-t0.up()).xz().angle_between(target_direction.xz());
             //target_direction = (arm.target - root_transform.translation()).normalize();
-            let mut knee_direction = knee_target - root_transform.translation();
+            let mut knee_direction= (knee_target - root_transform.translation()).normalize();
             let mut knee_to_target_direction = target_position - knee_target; 
             //knee_direction = (arm.target - root_transform.translation()).normalize();
             //let lean_rot = t0.up().xy().angle_between(knee_direction.xy());
             //let mut ln_rot = root_transform.up().xy().angle_between(knee_direction.xy()); //Lean rot is almost perfect, but doesn't work when moving along the z axis
-            let mut ln_rot = signed_angle_between(root_transform.up().as_vec3(), knee_direction, root_transform.up().as_vec3());
+            let flat_dir = Vec3::new(target_direction.x, 0., target_direction.z);
+            let mut ln_rot = signed_angle_between(root_transform.up().as_vec3(), knee_direction, flat_dir);
+            ln_rot = root_transform.up().as_vec3().angle_between(knee_direction);
             //let vertical_rot = t0.right().xz().angle_between(knee_direction.xz());
             //let mut vt_rot: f32 = -root_transform.right().xz().angle_between(knee_direction.xz()); // These vertical angle calculations are bogus
-            let mut vt_rot: f32 = -(root_transform.right()).xz().angle_between(knee_direction.xz());
+            let mut vt_rot: f32 = -(root_transform.right()).xz().angle_between(target_direction.xz());
             vt_rot += PI;
             let mut ls_rot = knee_direction.angle_between(knee_to_target_direction);
             //println!("{knee_direction} {knee_to_target_direction}");
             gizmos.line(root_transform.translation(), root_transform.translation() + (knee_direction * 2.), Color::srgb(1., 1., 1.));
-            gizmos.line(knee_target, knee_target + knee_to_target_direction * 2., Color::srgb(0., 1., 0.));
+            gizmos.line(root_transform.translation(), root_transform.translation() + (target_direction * 2.), Color::srgb(1., 1., 1.));
             //gizmos.line(root_transform.translation(), root_transform.translation() + knee_direction, Color::srgb(1., 1., 1.));
             if (ln_rot.is_nan()) {
                 println!("Rot nan");
                 ln_rot = PI / 2.;
                 continue;
             }
-
+            //let sa = signed_angle_2(root_transform.up().as_vec3(), knee_direction);
+            //println!("{sa}");
+            let dot = Vec3::new(knee_direction.x, 0., knee_direction.z).dot(Vec3::new(target_direction.x, 0., target_direction.z));
+            println!("Dot: {} {} {}", dot, knee_direction, target_direction);
            // println!("lean_rot: {}", ln_rot.to_degrees());
-            if (vt_rot.abs() > PI / 2.) {
+            if (dot < 0.) {
+                ln_rot = -ln_rot;
+               // ln_rot += PI; 
                     //vt_rot += PI;
                 //vt_rot = vt_rot.abs() + PI / 2.;
             }
             //ls_rot = -ls_rot;
-            println!("ls_rot: {}", ls_rot.to_degrees());
+            //println!("lean_rot: {}", ln_rot.to_degrees());
             t0.rotation = Quat::from_euler(EulerRot::XYZ, 0., vt_rot, ln_rot);
- //           t1.rotation = Quat::from_euler(EulerRot::XYZ, 0., 0., ls_rot);
+            t1.rotation = Quat::from_euler(EulerRot::XYZ, 0., 0., ls_rot);
             //t0.rotate(Quat::from_euler(EulerRot::XYZ, 0., vertical_rot - PI/2., lean_rot));
             //t0.rotate(Quat::from_euler(EulerRot::XYZ, 0., 0., lean_rot)); seems to work for lean
             //t0.rotation = Quat::from_euler(EulerRot::XYZ, 0. ,0., lean_rot);
@@ -125,9 +132,11 @@ fn squish_on_plane(v: Vec3, normal: Vec3, radius: f32) -> Vec3 {
 }
 
 fn project_onto_plane(v: Vec3, normal: Vec3) -> Vec3 {
-    let dot_product = v.dot(normal);
-    return v  - (dot_product) * normal;
-    //return (v - projection) * dot_product;
+    return v - v.dot(normal) * normal;
+}
+
+fn signed_angle_2(a: Vec3, b: Vec3) -> f32 {
+    return a.normalize().dot(b.normalize()).acos();
 }
 /* 
 fn handle_ik(
@@ -292,6 +301,7 @@ fn signed_angle_between(a: Vec3, b: Vec3, normal: Vec3) -> f32 {
 
     let cross_product = v1.cross(v2);
     let sign = cross_product.dot(normal.normalize());
+    //println!("{a}, {b}, {normal}, {cross_product}, {sign:.2}");
 
     if sign < 0.0 {
         -unsigned_angle

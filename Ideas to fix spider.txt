@@ -27,5 +27,8 @@ Gizmo the point on the circle that the squished up vector points towards V
 Get the knee on that point V
 Add a way to change the up vector dynamically V
 Check if knee orientation still works V
+Get the knee orientation to always face the same side towards the target
 Get the the end of the leg on the target
 check if it works in all up configurations
+check on spider
+LETS FUCKKING GOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
