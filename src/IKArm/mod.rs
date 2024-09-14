@@ -1,5 +1,5 @@
 use std::f32::consts::PI;
-use bevy::{prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
+use bevy::{math::VectorSpace, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
 
 #[derive(Component)]
 pub struct IKArm {
@@ -34,14 +34,33 @@ fn handle_arm_targets(
 fn handle_ik(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut arm_query: Query<(Entity, &IKArm)>,
+    mut arm_query: Query<(Entity, &mut IKArm)>,
     children_query: Query<&Children>,
     parent_query: Query<(Entity, &SkinnedMesh)>,
     mut transform_query: Query<&mut Transform>,
     mut gtransform_query: Query<&mut GlobalTransform>,
     mut gizmos: Gizmos,
 ) {
-    for (arm_entity, arm) in arm_query.iter_mut() {
+    for (arm_entity, mut arm) in arm_query.iter_mut() {
+        if keys.just_pressed(KeyCode::Numpad4) {
+            arm.up = arm.up.lerp(Vec3::X, 0.1);
+        }
+        else if keys.just_pressed(KeyCode::Numpad6) {
+            arm.up = arm.up.lerp(-Vec3::X, 0.1);
+        }
+        else if keys.just_pressed(KeyCode::Numpad8) {
+            arm.up = arm.up.lerp(Vec3::Z, 0.1);
+        }
+        else if keys.just_pressed(KeyCode::Numpad2) {
+            arm.up = arm.up.lerp(-Vec3::Z, 0.1);
+        }
+        else if keys.just_pressed(KeyCode::Numpad7) {
+            arm.up = arm.up.lerp(Vec3::Y, 0.1);
+        }
+        else if keys.just_pressed(KeyCode::Numpad9) {
+            arm.up = arm.up.lerp(-Vec3::Y, 0.1);
+        }
+        arm.up = arm.up.normalize();
         for child in children_query.iter_descendants(arm_entity) {
             let Ok((entity, skinned_mesh)) = parent_query.get(child) else {continue;};
             let target_position: Vec3 = arm.target;
@@ -64,24 +83,27 @@ fn handle_ik(
             //target_direction = (arm.target - root_transform.translation()).normalize();
             let mut knee_direction = knee_target - root_transform.translation();
             //knee_direction = (arm.target - root_transform.translation()).normalize();
-            let lean_rot = t0.up().xy().angle_between(knee_direction.xy());
-            let ln_rot = root_transform.up().xy().angle_between(knee_direction.xy());
-            let vertical_rot = t0.right().xz().angle_between(knee_direction.xz());
+            //let lean_rot = t0.up().xy().angle_between(knee_direction.xy());
+            let mut ln_rot = root_transform.up().xy().angle_between(knee_direction.xy()); //Lean rot is almost perfect, but doesn't work when moving along the z axis
+            ln_rot = signed_angle_between(root_transform.up().as_vec3(), knee_direction, root_transform.up().as_vec3());
+            //let vertical_rot = t0.right().xz().angle_between(knee_direction.xz());
             //let mut vt_rot: f32 = -root_transform.right().xz().angle_between(knee_direction.xz()); // These vertical angle calculations are bogus
-            let mut vt_rot: f32 = -(root_transform.right()).xz().angle_between(target_direction.xz());
-            //gizmos.line(root_transform.translation(), root_transform.translation() + t0.right().xz().extend(0.) * 2., Color::srgb(0., 0., 1.));
+            let mut vt_rot: f32 = -(root_transform.right()).xz().angle_between(knee_direction.xz());
+            gizmos.line(root_transform.translation(), root_transform.translation() + root_transform.right().xz().extend(0.) * 2., Color::srgb(0., 0., 1.));
             //gizmos.line(root_transform.translation(), root_transform.translation() + knee_direction.xz().extend(0.) * 2., Color::srgb(1., 1., 1.));
-            gizmos.line(root_transform.translation(), root_transform.translation() + knee_direction, Color::srgb(1., 1., 1.));
-            if (lean_rot.is_nan()) {
+            //gizmos.line(root_transform.translation(), root_transform.translation() + knee_direction, Color::srgb(1., 1., 1.));
+            if (ln_rot.is_nan()) {
                 println!("Rot nan");
+                ln_rot = PI / 2.;
                 continue;
             }
            // println!("lean_rot: {}", ln_rot.to_degrees());
            if (vt_rot.abs() > PI / 2.) {
-                vt_rot += PI;
+                //vt_rot += PI;
              //vt_rot = vt_rot.abs() + PI / 2.;
            }
-           println!("vertical_rot: {}", vt_rot.to_degrees());
+           vt_rot += PI;
+           println!("vt_rot: {}", vt_rot.to_degrees());
 
             t0.rotation = Quat::from_euler(EulerRot::XYZ, 0., vt_rot, ln_rot);
             //t0.rotate(Quat::from_euler(EulerRot::XYZ, 0., vertical_rot - PI/2., lean_rot));

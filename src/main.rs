@@ -114,12 +114,7 @@ fn multi_pos_camera(
         else if keys.just_pressed(KeyCode::ArrowRight) {
             multi_pos.index += 1;
         }
-        if multi_pos.index == -1 {
-            multi_pos.index = multi_pos.positions.len() as i32 - 1;
-        }
-        if multi_pos.index == multi_pos.positions.len() as i32 {
-            multi_pos.index = 0;
-        }
+        multi_pos.index = multi_pos.index.rem_euclid(multi_pos.positions.len() as i32);
         //multi_pos.index = multi_pos.index % (multi_pos.positions.len() as i32);
         let (position, target) = multi_pos.positions[multi_pos.index as usize];
         *transform = Transform::from_translation(position).looking_at(target, Vec3::Y);
