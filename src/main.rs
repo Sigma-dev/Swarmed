@@ -14,7 +14,10 @@ mod spider;
 struct Movable;
 
 #[derive(Component)]
-struct MEsh;
+struct MultiPosCamera {
+    positions: Vec<(Vec3, Vec3)>,
+    index: i32
+}
 
 fn main() {
     App::new()
@@ -25,7 +28,7 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, (setup, ).chain())
-        .add_systems(Update, (movable))
+        .add_systems(Update, (movable, multi_pos_camera))
        // .observe(modify_meshes)
         .run();
 }
@@ -42,11 +45,16 @@ fn modify_meshes(
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,) {
     // Create a camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-7.0, 7., -7.0)
-            .looking_at(Vec3::new(0.0, 0., 0.0), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((Camera3dBundle {
+            transform: Transform::from_xyz(-7.0, 7., -7.0)
+                .looking_at(Vec3::new(0.0, 0., 0.0), Vec3::Y),
+            ..default()
+        },
+        MultiPosCamera { 
+            positions: vec![(Vec3::new(-7.0, 7., -7.0), Vec3::new(0.0, 0., 0.0)), (Vec3::new(0.0, 10., 0.0), Vec3::new(0.0, 0., 0.0))],
+            index: 0,
+        }
+    ));
 
     //spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
     spawn_test_arm(&mut commands, &asset_server, &mut meshes, &mut materials);
@@ -92,5 +100,28 @@ fn movable(
             vec.y -= 1.0
         }
         movable_transform.translation += vec * 0.01;
+    }
+}
+
+fn multi_pos_camera(
+    mut camera_query: Query<(&mut Transform, &mut MultiPosCamera)>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    for (mut transform, mut multi_pos) in camera_query.iter_mut() {
+        if keys.just_pressed(KeyCode::ArrowLeft) {
+            multi_pos.index -= 1;
+        }
+        else if keys.just_pressed(KeyCode::ArrowRight) {
+            multi_pos.index += 1;
+        }
+        if multi_pos.index == -1 {
+            multi_pos.index = multi_pos.positions.len() as i32 - 1;
+        }
+        if multi_pos.index == multi_pos.positions.len() as i32 {
+            multi_pos.index = 0;
+        }
+        //multi_pos.index = multi_pos.index % (multi_pos.positions.len() as i32);
+        let (position, target) = multi_pos.positions[multi_pos.index as usize];
+        *transform = Transform::from_translation(position).looking_at(target, Vec3::Y);
     }
 }

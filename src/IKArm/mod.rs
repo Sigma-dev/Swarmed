@@ -63,17 +63,29 @@ fn handle_ik(
             //let vertical_rot = (-t0.up()).xz().angle_between(target_direction.xz());
             //target_direction = (arm.target - root_transform.translation()).normalize();
             let mut knee_direction = knee_target - root_transform.translation();
-            knee_direction = (arm.target - root_transform.translation()).normalize();
+            //knee_direction = (arm.target - root_transform.translation()).normalize();
             let lean_rot = t0.up().xy().angle_between(knee_direction.xy());
+            let ln_rot = root_transform.up().xy().angle_between(knee_direction.xy());
             let vertical_rot = t0.right().xz().angle_between(knee_direction.xz());
-            gizmos.line(root_transform.translation(), root_transform.translation() + t0.right().xz().extend(0.) * 2., Color::srgb(0., 0., 1.));
-            gizmos.line(root_transform.translation(), root_transform.translation() + knee_direction.xz().extend(0.) * 2., Color::srgb(1., 1., 1.));
+            //let mut vt_rot: f32 = -root_transform.right().xz().angle_between(knee_direction.xz()); // These vertical angle calculations are bogus
+            let mut vt_rot: f32 = -(root_transform.right()).xz().angle_between(target_direction.xz());
+            //gizmos.line(root_transform.translation(), root_transform.translation() + t0.right().xz().extend(0.) * 2., Color::srgb(0., 0., 1.));
+            //gizmos.line(root_transform.translation(), root_transform.translation() + knee_direction.xz().extend(0.) * 2., Color::srgb(1., 1., 1.));
+            gizmos.line(root_transform.translation(), root_transform.translation() + knee_direction, Color::srgb(1., 1., 1.));
             if (lean_rot.is_nan()) {
                 println!("Rot nan");
                 continue;
             }
-            //println!("vertical_rot: {}", vertical_rot.to_degrees());
-           // t0.rotate(Quat::from_euler(EulerRot::XYZ, 0., 0., lean_rot));
+           // println!("lean_rot: {}", ln_rot.to_degrees());
+           if (vt_rot.abs() > PI / 2.) {
+                vt_rot += PI;
+             //vt_rot = vt_rot.abs() + PI / 2.;
+           }
+           println!("vertical_rot: {}", vt_rot.to_degrees());
+
+            t0.rotation = Quat::from_euler(EulerRot::XYZ, 0., vt_rot, ln_rot);
+            //t0.rotate(Quat::from_euler(EulerRot::XYZ, 0., vertical_rot - PI/2., lean_rot));
+            //t0.rotate(Quat::from_euler(EulerRot::XYZ, 0., 0., lean_rot)); seems to work for lean
             //t0.rotation = Quat::from_euler(EulerRot::XYZ, 0. ,0., lean_rot);
         }
     }

@@ -24,5 +24,7 @@ Make a way to rotate the up vector in every direction
 Find a way to squish the up vector onto the circle V
 Gizmo the squished up vector V
 Gizmo the point on the circle that the squished up vector points towards V
-Get the knee on that point
+Get the knee on that point V
+Add a way to change the up vector dynamically
+Check if knee orientation still works
 Get the the end of the leg on the target
