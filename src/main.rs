@@ -1,16 +1,15 @@
 use std::f32::{consts::*, NAN};
 use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::{mesh::{self, skinning::SkinnedMesh}, settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
+use bevy_steam_p2p::*;
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::spawn_spider;
-use steam_network::{FilePath, LobbyIdCallbackChannel, NetworkClient, NetworkData, NetworkIdentity, NetworkedTransform, SteamNetworkPlugin};
 use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;
 mod leg;
 mod spider;
-mod steam_network;
 
 #[derive(Component)]
 struct Movable {
@@ -19,7 +18,7 @@ struct Movable {
 
 fn main() {
     App::new()
-        .add_plugins(SteamNetworkPlugin)
+        .add_plugins(SteamP2PPlugin)
         .add_plugins(DefaultPlugins.set(RenderPlugin {
             render_creation: RenderCreation::Automatic(WgpuSettings {
                 backends: Some(Backends::VULKAN),
@@ -34,7 +33,6 @@ fn main() {
         })
         .add_systems(Startup, (setup, ).chain())
         .add_systems(Update, (movable, steam_system))
-       // .observe(modify_meshes)
         .run();
 }
 
@@ -49,18 +47,16 @@ fn modify_meshes(
 
 fn steam_system(
     keys: Res<ButtonInput<KeyCode>>,
-    mut client: ResMut<NetworkClient>,
-   // channel: Res<LobbyIdCallbackChannel>
+    mut client: ResMut<SteamP2PClient>,
 ) {
     if keys.just_pressed(KeyCode::KeyC) {
         client.create_lobby();
     }
-    else if (keys.just_pressed(KeyCode::KeyV)) {
+    else if keys.just_pressed(KeyCode::KeyV) {
         client.leave_lobby();
     }
-    else if (keys.just_pressed(KeyCode::KeyT)) {
-       client.instantiate(FilePath(0),Vec3 {x:1., y:2., z: 1.});
-       //client.send_message(NetworkData::PositionUpdate(NetworkId(0), Vec3::new(1., 2., 3.)), true);
+    else if keys.just_pressed(KeyCode::KeyT) {
+       client.instantiate(FilePath(0),Vec3 {x:1., y:2., z: 1.}).unwrap_or_else(|e| eprintln!("Instantiation error: {e}"));
     }
 }
 
@@ -91,19 +87,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
 }
 
 fn movable(
-    mut transform_query: Query<(&mut Transform, Option<&NetworkIdentity>, &Movable)>,
+    mut transform_query: Query<(&mut Transform, &Movable)>,
     keys: Res<ButtonInput<KeyCode>>,
-    client: Option<Res<NetworkClient>>
+    time: Res<Time>
 ) {
-    for (mut movable_transform, network_identity, movable) in transform_query.iter_mut() {
+    for (mut movable_transform, movable) in transform_query.iter_mut() {
         let mut vec = Vec3::ZERO;
-        if let Some(identity) = network_identity {
-            if let Some(ref cli) = client {
-                if identity.owner_id != cli.id {
-                    continue;
-                }
-            }
-        }
         if keys.pressed(KeyCode::KeyW) {
             vec.z += 1.0
         }
@@ -122,6 +111,6 @@ fn movable(
         if keys.pressed(KeyCode::KeyE) {
             vec.y -= 1.0
         }
-        movable_transform.translation += vec * 0.01 * movable.speed;
+        movable_transform.translation += vec * time.delta_seconds() * movable.speed;
     }
 }
