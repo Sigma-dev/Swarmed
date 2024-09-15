@@ -1,6 +1,6 @@
 use std::{path::Path, time::Duration};
 
-use bevy::{app::{App, FixedUpdate, Plugin, Startup, Update}, asset::Assets, color::Color, input::ButtonInput, math::{Vec3, VectorSpace}, pbr::{PbrBundle, StandardMaterial}, prelude::{default, Commands, Component, Cuboid, Event, EventReader, EventWriter, IntoSystemConfigs, KeyCode, Mesh, Query, Res, ResMut, Resource, Transform, With}, scene::{ron::de::Position, serde}, time::{common_conditions::on_timer, Time}};
+use bevy::{app::{App, FixedUpdate, Plugin, Startup, Update}, asset::Assets, color::Color, input::ButtonInput, math::{Vec3, VectorSpace}, pbr::{PbrBundle, StandardMaterial}, prelude::{default, Commands, Component, Cuboid, Entity, Event, EventReader, EventWriter, IntoSystemConfigs, KeyCode, Mesh, Query, Res, ResMut, Resource, Transform, With}, scene::{ron::de::Position, serde}, time::{common_conditions::on_timer, Time}};
 use bevy_steamworks::{Client, FriendFlags, GameLobbyJoinRequested, LobbyId, LobbyType, Manager, Matchmaking, SteamError, SteamId, SteamworksEvent, SteamworksPlugin};
 use flume::{Receiver, Sender};
 use ::serde::{Deserialize, Serialize};
@@ -365,6 +365,8 @@ fn steam_events(
     steam_client: Res<Client>,
     mut evs: EventReader<SteamworksEvent>,
     mut client: ResMut<NetworkClient>,
+    mut network_query: Query<(Entity, &NetworkIdentity)>,
+    mut commands: Commands,
     //channel: Res<LobbyIdCallbackChannel>
 ) {
     for ev in evs.read() {
@@ -378,13 +380,14 @@ fn steam_events(
                 println!("Chat Update");
                 match info.member_state_change {
                     bevy_steamworks::ChatMemberStateChange::Entered => lobby_joined(&mut client, info),
-                    bevy_steamworks::ChatMemberStateChange::Left => {
+                    bevy_steamworks::ChatMemberStateChange::Left | bevy_steamworks::ChatMemberStateChange::Disconnected => {
                         println!("Other left lobby");
-                        client.lobby_status = LobbyStatus::OutOfLobby
-                    }
-                    bevy_steamworks::ChatMemberStateChange::Disconnected => {
-                        println!("Other disconnected from lobby");
                         client.lobby_status = LobbyStatus::OutOfLobby;
+                        for (entity, networked) in network_query.iter() {
+                            if (networked.owner_id == info.making_change) {
+                                commands.entity(entity).despawn();
+                            }
+                        }
                     }
                     _ => println!("other")
                 }
