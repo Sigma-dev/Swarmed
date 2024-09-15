@@ -92,7 +92,7 @@ fn handle_ik(
             ln_rot = root_transform.up().as_vec3().angle_between(knee_direction);
             //let vertical_rot = t0.right().xz().angle_between(knee_direction.xz());
             //let mut vt_rot: f32 = -root_transform.right().xz().angle_between(knee_direction.xz()); // These vertical angle calculations are bogus
-            let mut vt_rot: f32 = -(root_transform.right()).xz().angle_between(target_direction.xz());
+            let mut vt_rot: f32 = -(root_transform.right()).xz().angle_between(knee_direction.xz());
             vt_rot += PI;
             let mut ls_rot = knee_direction.angle_between(knee_to_target_direction);
             //println!("{knee_direction} {knee_to_target_direction}");
@@ -106,8 +106,8 @@ fn handle_ik(
             }
             //let sa = signed_angle_2(root_transform.up().as_vec3(), knee_direction);
             //println!("{sa}");
-            let dot = Vec3::new(knee_direction.x, 0., knee_direction.z).dot(Vec3::new(target_direction.x, 0., target_direction.z));
-            println!("Dot: {} {} {}", dot, knee_direction, target_direction);
+            let dot = knee_direction.with_y(0.).dot(target_direction.with_y(0.));
+            //println!("Dot: {} {} {}", dot, knee_direction, target_direction);
            // println!("lean_rot: {}", ln_rot.to_degrees());
             if (dot < 0.) {
                 ln_rot = -ln_rot;
@@ -118,7 +118,13 @@ fn handle_ik(
             //ls_rot = -ls_rot;
             //println!("lean_rot: {}", ln_rot.to_degrees());
             t0.rotation = Quat::from_euler(EulerRot::XYZ, 0., vt_rot, ln_rot);
-            t1.rotation = Quat::from_euler(EulerRot::XYZ, 0., 0., ls_rot);
+            //println!("angle: {}", time.elapsed_seconds().to_degrees());
+            //arccos(dot(A,B) / (|A|* |B|)).
+            let mut angle =  squished_up.dot(-Vec3::Y).acos();
+            angle = t0.down().angle_between(knee_target - knee_circle_center);
+            println!("{}", angle.to_degrees());
+            //t0.rotate_local_y(time.elapsed_seconds());
+            //t1.rotation = Quat::from_euler(EulerRot::XYZ, 0., 0., ls_rot);
             //t0.rotate(Quat::from_euler(EulerRot::XYZ, 0., vertical_rot - PI/2., lean_rot));
             //t0.rotate(Quat::from_euler(EulerRot::XYZ, 0., 0., lean_rot)); seems to work for lean
             //t0.rotation = Quat::from_euler(EulerRot::XYZ, 0. ,0., lean_rot);
@@ -137,6 +143,10 @@ fn project_onto_plane(v: Vec3, normal: Vec3) -> Vec3 {
 
 fn signed_angle_2(a: Vec3, b: Vec3) -> f32 {
     return a.normalize().dot(b.normalize()).acos();
+}
+
+fn vec_to_polar(pos: Vec3, circle_center: Vec3, circle_normal: Vec3, radius: f32) {
+
 }
 /* 
 fn handle_ik(

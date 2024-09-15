@@ -51,7 +51,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
             ..default()
         },
         MultiPosCamera { 
-            positions: vec![(Vec3::new(-7.0, 7., -7.0), Vec3::new(0.0, 0., 0.0)), (Vec3::new(0.0, 10., 0.0), Vec3::new(0.0, 0., 0.0))],
+            positions: vec![
+                (Vec3::new(-3.0, 3., -3.0), Vec3::new(0.0, 0., 0.0)),
+                (Vec3::new(-7.0, 7., -7.0), Vec3::new(0.0, 0., 0.0)),
+                (Vec3::new(0.0, 10., 0.0), Vec3::new(0.0, 0., 0.0))
+            ],
             index: 0,
         }
     ));
