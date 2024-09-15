@@ -316,7 +316,7 @@ fn steam_system(
     }
     */
     for to_handshake in &client.not_yet_handshaken {
-        client.send_message(&NetworkData::Handshake, *to_handshake);
+        //client.send_message(&NetworkData::Handshake, *to_handshake);
     }
     if let Ok(lobby_id) = rx.try_recv() {
         //game_state.set(ClientState::InLobby);
