@@ -73,13 +73,13 @@ fn handle_ik(
             let knee_circle_distance = root_transform.translation().distance(knee_circle_center);
             let knee_circle_radius = (l1.powi(2) - knee_circle_distance.powi(2)).sqrt();
             let Ok(knee_circle_normal) = Dir3::new(target_direction) else { println!("woops"); return;};
-            gizmos.circle(knee_circle_center, knee_circle_normal, knee_circle_radius, Color::srgb(0., 0.5, 0.));
-            gizmos.line(knee_circle_center, knee_circle_center + arm.up, Color::srgb(0.5, 0.0, 0.));
+            //gizmos.circle(knee_circle_center, knee_circle_normal, knee_circle_radius, Color::srgb(0., 0.5, 0.));
+            //gizmos.line(knee_circle_center, knee_circle_center + arm.up, Color::srgb(0.5, 0.0, 0.));
             let squished_up = squish_on_plane(arm.up, knee_circle_normal.as_vec3(), knee_circle_radius); //Maybe jitter will be caused by varying solutions when the up is close the the normal. Rejecting corrections when the projected vector is small could be a workaround
             let knee_target = knee_circle_center + squished_up;
-            gizmos.line(knee_circle_center, knee_circle_center + squished_up, Color::srgb(0.5, 0.5, 0.5));
-            gizmos.line(knee_circle_center, knee_target, Color::srgb(0.5, 0.5, 0.));
-            gizmos.sphere(knee_target, Quat::IDENTITY, 0.2, Color::srgb(0., 1., 0.));
+            //gizmos.line(knee_circle_center, knee_circle_center + squished_up, Color::srgb(0.5, 0.5, 0.5));
+            //gizmos.line(knee_circle_center, knee_target, Color::srgb(0.5, 0.5, 0.));
+            //gizmos.sphere(knee_target, Quat::IDENTITY, 0.2, Color::srgb(0., 1., 0.));
             //let vertical_rot = (-t0.up()).xz().angle_between(target_direction.xz());
             //target_direction = (arm.target - root_transform.translation()).normalize();
             let mut knee_direction= (knee_target - root_transform.translation()).normalize();
@@ -96,8 +96,7 @@ fn handle_ik(
             vt_rot += PI;
             let mut ls_rot = knee_direction.angle_between(knee_to_target_direction);
             //println!("{knee_direction} {knee_to_target_direction}");
-            gizmos.line(root_transform.translation(), root_transform.translation() + (knee_direction * 2.), Color::srgb(1., 1., 1.));
-            gizmos.line(root_transform.translation(), root_transform.translation() + (target_direction * 2.), Color::srgb(1., 1., 1.));
+          //  gizmos.line(root_transform.translation(), root_transform.translation() + (target_direction * 2.), Color::srgb(1., 1., 1.));
             //gizmos.line(root_transform.translation(), root_transform.translation() + knee_direction, Color::srgb(1., 1., 1.));
             if (ln_rot.is_nan()) {
                 println!("Rot nan");
@@ -121,7 +120,10 @@ fn handle_ik(
             //println!("angle: {}", time.elapsed_seconds().to_degrees());
             //arccos(dot(A,B) / (|A|* |B|)).
             let mut angle =  squished_up.dot(-Vec3::Y).acos();
-            angle = t0.down().angle_between(knee_target - knee_circle_center);
+            let knee_to_circle_center = (knee_target - knee_circle_center).normalize();
+            angle = (-Vec3::Y).angle_between(knee_target - knee_circle_center);
+            //gizmos.line(knee_target, knee_target + arm_transform.down() * 2., Color::srgb(0., 0., 1.));
+            //gizmos.line(knee_circle_center, knee_circle_center + (knee_to_circle_center * 2.), Color::srgb(1., 1., 1.));
             println!("{}", angle.to_degrees());
             //t0.rotate_local_y(time.elapsed_seconds());
             //t1.rotation = Quat::from_euler(EulerRot::XYZ, 0., 0., ls_rot);
