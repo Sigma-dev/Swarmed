@@ -1,7 +1,8 @@
 use std::f32::{consts::*, NAN};
-use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::{mesh::{self, skinning::SkinnedMesh}, settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin}};
+use bevy::{diagnostic::LogDiagnosticsPlugin, math::{NormedVectorSpace, VectorSpace}, prelude::*, render::{mesh::{self, skinning::SkinnedMesh}, settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use bevy_steam_p2p::*;
+use fps_camera::{FpsCamera, FpsCameraPlugin};
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::spawn_spider;
@@ -10,6 +11,7 @@ use IKArm::{IKArmPlugin, IKArmTarget};
 mod IKArm;
 mod leg;
 mod spider;
+mod fps_camera;
 
 #[derive(Component)]
 struct Movable {
@@ -26,13 +28,14 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((IKArmPlugin, LegPlugin))
+        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin))
+        .add_plugins(LogDiagnosticsPlugin::default(),)
         .insert_resource(AmbientLight {
             brightness: 750.0,
             ..default()
         })
         .add_systems(Startup, (setup, ).chain())
-        .add_systems(Update, (movable, steam_system))
+        .add_systems(Update, (movable, steam_system, receive_network_messages))
         .run();
 }
 
@@ -47,28 +50,65 @@ fn modify_meshes(
 
 fn steam_system(
     keys: Res<ButtonInput<KeyCode>>,
-    mut client: ResMut<SteamP2PClient>,
+    mut client: ResMut<crate::client::SteamP2PClient>,
 ) {
     if keys.just_pressed(KeyCode::KeyC) {
-        client.create_lobby();
+        client.create_lobby(8);
     }
     else if keys.just_pressed(KeyCode::KeyV) {
         client.leave_lobby();
+    }
+    else if keys.just_pressed(KeyCode::KeyP) {
+        client.send_message_all(NetworkData::NetworkMessage("2048".into()), SendFlags::RELIABLE);
     }
     else if keys.just_pressed(KeyCode::KeyT) {
        client.instantiate(FilePath(0),Vec3 {x:1., y:2., z: 1.}).unwrap_or_else(|e| eprintln!("Instantiation error: {e}"));
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,) {
+fn receive_network_messages(
+    mut commands: Commands,
+    mut evs_messages: EventReader<NetworkPacket>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for ev in evs_messages.read() {
+        if let NetworkData::NetworkMessage(ref msg) = ev.data {
+            if let Ok(id) = msg.parse::<u32>() {
+                commands.spawn((
+                    PbrBundle {
+                    mesh: meshes.add(Capsule3d::new(1.0, 1.0)),
+                    material: materials.add(Color::srgb_u8(124, 144, 255)),
+                    ..default()
+                    },
+                    NetworkIdentity { owner_id: ev.sender, id },
+                    NetworkedTransform{synced: true, target: Vec3::ZERO},
+                )).with_children(|parent| {
+                    parent.spawn((
+                        Camera3dBundle {
+                            transform: Transform::from_xyz(0., 1.8, 0.),
+                            ..default()
+                        },
+                        FpsCamera { sensitivity: 1. }
+                    ));
+                });
+            }
+        }
+    }
+}
+
+fn setup(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>,
+) {
     // Create a camera
+    /* 
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-7.0, 7., -7.0)
             .looking_at(Vec3::new(0.0, 0., 0.0), Vec3::Y),
         ..default()
     });
-
+*/
     //spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
         
     commands.spawn(SceneBundle {

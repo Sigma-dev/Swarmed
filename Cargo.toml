@@ -13,9 +13,6 @@ bevy_mod_raycast = "0.18.0"
 itertools = "0.13.0"
 bevy_steam_p2p = { git = "https://github.com/Sigma-dev/bevy_steam_p2p" }
 
-[workspace]
-resolver = "2"
-
 [profile.dev]
 opt-level = 1
 
