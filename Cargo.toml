@@ -12,6 +12,8 @@ rand = "0.8"
 bevy_mod_raycast = "0.18.0"
 itertools = "0.13.0"
 bevy_steam_p2p = { git = "https://github.com/Sigma-dev/bevy_steam_p2p" }
+avian3d = "0.1"
+leafwing-input-manager = "0.15.0"
 
 [profile.dev]
 opt-level = 1

@@ -1,8 +1,11 @@
 use std::f32::{consts::*, NAN};
+use avian3d::{prelude::{Collider, ColliderConstructor, ColliderConstructorHierarchy, RigidBody}, PhysicsPlugins};
 use bevy::{diagnostic::LogDiagnosticsPlugin, math::{NormedVectorSpace, VectorSpace}, prelude::*, render::{mesh::{self, skinning::SkinnedMesh}, settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use bevy_steam_p2p::*;
+use character_controller::spawn_test_character;
 use fps_camera::{FpsCamera, FpsCameraPlugin};
+use fps_movement::{CharacterControllerBundle, CharacterControllerPlugin};
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::spawn_spider;
@@ -12,6 +15,8 @@ mod IKArm;
 mod leg;
 mod spider;
 mod fps_camera;
+mod fps_movement;
+mod character_controller;
 
 #[derive(Component)]
 struct Movable {
@@ -29,7 +34,7 @@ fn main() {
             ..default()
         }))
         .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin))
-        .add_plugins(LogDiagnosticsPlugin::default(),)
+        .add_plugins((LogDiagnosticsPlugin::default(), PhysicsPlugins::default(), CharacterControllerPlugin, character_controller::plugin))
         .insert_resource(AmbientLight {
             brightness: 750.0,
             ..default()
@@ -50,6 +55,7 @@ fn modify_meshes(
 
 fn steam_system(
     keys: Res<ButtonInput<KeyCode>>,
+    mut evs_lobby: EventReader<LobbyJoined>,
     mut client: ResMut<crate::client::SteamP2PClient>,
 ) {
     if keys.just_pressed(KeyCode::KeyC) {
@@ -58,11 +64,13 @@ fn steam_system(
     else if keys.just_pressed(KeyCode::KeyV) {
         client.leave_lobby();
     }
-    else if keys.just_pressed(KeyCode::KeyP) {
-        client.send_message_all(NetworkData::NetworkMessage("2048".into()), SendFlags::RELIABLE);
-    }
     else if keys.just_pressed(KeyCode::KeyT) {
        client.instantiate(FilePath(0),Vec3 {x:1., y:2., z: 1.}).unwrap_or_else(|e| eprintln!("Instantiation error: {e}"));
+    }
+
+    for ev in evs_lobby.read() {
+        println!("here");
+        client.send_message_all(NetworkData::NetworkMessage("2048".into()), SendFlags::RELIABLE);
     }
 }
 
@@ -71,27 +79,34 @@ fn receive_network_messages(
     mut evs_messages: EventReader<NetworkPacket>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_server: ResMut<AssetServer>
 ) {
     for ev in evs_messages.read() {
         if let NetworkData::NetworkMessage(ref msg) = ev.data {
             if let Ok(id) = msg.parse::<u32>() {
+                spawn_test_character(&mut commands, &mut meshes, &mut materials);
+                /* 
                 commands.spawn((
                     PbrBundle {
-                    mesh: meshes.add(Capsule3d::new(1.0, 1.0)),
+                    mesh: meshes.add(Capsule3d::new(0.1, 1.8)),
                     material: materials.add(Color::srgb_u8(124, 144, 255)),
                     ..default()
                     },
                     NetworkIdentity { owner_id: ev.sender, id },
                     NetworkedTransform{synced: true, target: Vec3::ZERO},
+                    CharacterControllerBundle::new(Collider::capsule(0.1, 1.8), Vec3::NEG_Y * 9.81 * 2.0)
+                    .with_movement(30.0, 0.92, 7.0, 30_0_f32.to_radians()),
                 )).with_children(|parent| {
                     parent.spawn((
-                        Camera3dBundle {
+                         Camera3dBundle {
                             transform: Transform::from_xyz(0., 1.8, 0.),
                             ..default()
                         },
-                        FpsCamera { sensitivity: 1. }
+                        
+                        FpsCamera { sensitivity: 0.5 }
                     ));
                 });
+                */
             }
         }
     }
@@ -102,7 +117,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Create a camera
-    /* 
+     /* 
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-7.0, 7., -7.0)
             .looking_at(Vec3::new(0.0, 0., 0.0), Vec3::Y),
@@ -111,11 +126,15 @@ fn setup(
 */
     //spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
         
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("map/map.glb#Scene0"),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..Default::default()
-    });
+    commands.spawn((
+        SceneBundle {
+            scene: asset_server.load("map/map.glb#Scene0"),
+            transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            ..Default::default()
+        },
+        ColliderConstructorHierarchy::new(ColliderConstructor::TrimeshFromMesh),
+        RigidBody::Static,
+    ));
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
