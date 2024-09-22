@@ -12,9 +12,9 @@ use avian3d::{
     },
 };
 use bevy::{
-    color::palettes::css,
-    prelude::*,
+    color::palettes::css, math::VectorSpace, prelude::*
 };
+use bevy_steam_p2p::{NetworkIdentity, NetworkedTransform};
 use camera_rig::TrackedEntity;
 use input::PlayerActions;
 use leafwing_input_manager::InputManagerBundle;
@@ -105,6 +105,7 @@ pub fn spawn_test_character(
     mut commands: &mut Commands,
     mut meshes: &mut ResMut<Assets<Mesh>>,
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    network_identity: NetworkIdentity
 ) {
     commands.spawn((
         CharacterControllerBundle::default(),
@@ -114,6 +115,8 @@ pub fn spawn_test_character(
             transform: Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
             ..Default::default()
         },
+        NetworkedTransform { synced: true, target: Vec3::ZERO },
+        network_identity,
         LockedAxes::ROTATION_LOCKED,
         Name::new("CurrentPlayer"),
     ));

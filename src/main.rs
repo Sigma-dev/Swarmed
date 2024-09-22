@@ -84,7 +84,7 @@ fn receive_network_messages(
     for ev in evs_messages.read() {
         if let NetworkData::NetworkMessage(ref msg) = ev.data {
             if let Ok(id) = msg.parse::<u32>() {
-                spawn_test_character(&mut commands, &mut meshes, &mut materials);
+                spawn_test_character(&mut commands, &mut meshes, &mut materials, NetworkIdentity { id, owner_id: ev.sender });
                 /* 
                 commands.spawn((
                     PbrBundle {
