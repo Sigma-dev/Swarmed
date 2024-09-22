@@ -14,7 +14,7 @@ use avian3d::{
 use bevy::{
     color::palettes::css, math::VectorSpace, prelude::*
 };
-use bevy_steam_p2p::{NetworkIdentity, NetworkedTransform};
+use bevy_steam_p2p::{NetworkIdentity, networked_transform::{ NetworkedTransform } };
 use camera_rig::TrackedEntity;
 use input::PlayerActions;
 use leafwing_input_manager::InputManagerBundle;
