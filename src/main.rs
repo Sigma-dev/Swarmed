@@ -40,7 +40,7 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, (setup, ).chain())
-        .add_systems(Update, (movable, steam_system, receive_network_messages))
+        .add_systems(Update, (movable, steam_system, handle_unhandled_instantiations))
         .run();
 }
 
@@ -65,26 +65,26 @@ fn steam_system(
         client.leave_lobby();
     }
     else if keys.just_pressed(KeyCode::KeyT) {
-       client.instantiate(FilePath(0),Vec3 {x:1., y:2., z: 1.}).unwrap_or_else(|e| eprintln!("Instantiation error: {e}"));
+       client.instantiate(FilePath::new("InstantiationExample"),Vec3 {x:1., y:2., z: 1.}).unwrap_or_else(|e| eprintln!("Instantiation error: {e}"));
     }
 
     for ev in evs_lobby.read() {
-        println!("here");
-        client.send_message_all(NetworkData::NetworkMessage("2048".into()), SendFlags::RELIABLE);
+        client.instantiate(FilePath::new("Player"), Vec3::ZERO);
     }
 }
 
-fn receive_network_messages(
+fn handle_unhandled_instantiations(
     mut commands: Commands,
-    mut evs_messages: EventReader<NetworkPacket>,
+    mut evs_unhandled: EventReader<UnhandledInstantiation>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut asset_server: ResMut<AssetServer>
 ) {
-    for ev in evs_messages.read() {
-        if let NetworkData::NetworkMessage(ref msg) = ev.data {
-            if let Ok(id) = msg.parse::<u32>() {
-                spawn_test_character(&mut commands, &mut meshes, &mut materials, NetworkIdentity { id, owner_id: ev.sender });
+    for ev in evs_unhandled.read() {
+        println!("Instantiated");
+        if (ev.network_identity.instantiation_path == "Player") {
+            spawn_test_character(&mut commands, &mut meshes, &mut materials, ev.network_identity.clone());
+        }
                 /* 
                 commands.spawn((
                     PbrBundle {
@@ -107,8 +107,6 @@ fn receive_network_messages(
                     ));
                 });
                 */
-            }
-        }
     }
 }
 
