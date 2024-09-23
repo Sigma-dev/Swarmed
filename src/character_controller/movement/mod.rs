@@ -7,6 +7,7 @@ use avian3d::{
     },
 };
 use bevy::prelude::*;
+use bevy_steam_p2p::{networked_transform, NetworkIdentity, SteamP2PClient};
 use leafwing_input_manager::{
     plugin::InputManagerPlugin,
     prelude::ActionState,
@@ -50,11 +51,13 @@ impl Default for Gravity {
 /// This system processes player actions and updates the character's movement and camera
 /// orientation. It handles horizontal movement, jumping, and camera rotation using mouse input.
 pub fn movement_input(
+    client: Res<SteamP2PClient>,
     mut player_query: Query<(
         &ActionState<PlayerActions>,
         &mut KinematicCharacterController,
         Has<Grounded>,
         &mut Transform,
+        &NetworkIdentity
     )>,
     mut camera_query: Query<
         &mut Transform,
@@ -63,19 +66,21 @@ pub fn movement_input(
     time: Res<Time>,
 ) {
     // Early return if we can't get the player or camera
-    let Ok((action_state, mut kcc, grounded, mut player_transform)) = player_query.get_single_mut()
-    else {
-        return;
-    };
-    let Ok(mut camera_transform) = camera_query.get_single_mut() else { return };
+    for (action_state, mut kcc, grounded, mut player_transform, network_identity) in player_query.iter_mut() {
+        if network_identity.owner_id != client.id {
+            continue;
+        }
+        let Ok(mut camera_transform) = camera_query.get_single_mut() else { return };
 
-    update_player_movement(action_state, &mut kcc, grounded, &player_transform);
-    update_camera_rotation(
-        action_state,
-        &mut camera_transform,
-        &mut player_transform,
-        time.delta_seconds(),
-    );
+        update_player_movement(action_state, &mut kcc, grounded, &player_transform);
+        update_camera_rotation(
+            action_state,
+            &mut camera_transform,
+            &mut player_transform,
+            time.delta_seconds(),
+        );
+    }
+    
 }
 
 /// Updates the player's movement based on input
