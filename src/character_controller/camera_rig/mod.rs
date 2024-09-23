@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_steam_p2p::{NetworkIdentity, SteamP2PClient};
 
 use super::CharacterControllerSet;
 
@@ -18,11 +19,13 @@ pub struct RiggedCamera;
 pub struct TrackedEntity(pub Vec3);
 
 pub fn track_entity(
-    mut query: Query<(&TrackedEntity, &mut Transform), Without<RiggedCamera>>,
+    mut query: Query<(&TrackedEntity, &mut Transform, &NetworkIdentity), Without<RiggedCamera>>,
     mut camera_query: Query<&mut Transform, With<RiggedCamera>>,
+    client: Res<SteamP2PClient>
 ) {
     // There should only ever be one tracked entity and one rigged camera.
-    if let Ok((tracked_entity, tracked_transform)) = query.get_single_mut() {
+    for ((tracked_entity, tracked_transform, network_identity)) in query.iter_mut() {
+        if (network_identity.owner_id != client.id) { continue; };
         if let Ok(mut camera_transform) = camera_query.get_single_mut() {
             camera_transform.translation = tracked_entity.0 + tracked_transform.translation;
         }
