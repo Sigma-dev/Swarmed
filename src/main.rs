@@ -68,7 +68,7 @@ fn steam_system(
        client.instantiate(FilePath::new("InstantiationExample"),Vec3 {x:1., y:2., z: 1.}).unwrap_or_else(|e| eprintln!("Instantiation error: {e}"));
     }
 
-    for ev in evs_lobby.read() {
+    for _ in evs_lobby.read() {
         client.instantiate(FilePath::new("Player"), Vec3::ZERO);
     }
 }
@@ -82,31 +82,9 @@ fn handle_unhandled_instantiations(
 ) {
     for ev in evs_unhandled.read() {
         println!("Instantiated");
-        if (ev.network_identity.instantiation_path == "Player") {
+        if ev.network_identity.instantiation_path == "Player" {
             spawn_test_character(&mut commands, &mut meshes, &mut materials, ev.network_identity.clone());
         }
-                /* 
-                commands.spawn((
-                    PbrBundle {
-                    mesh: meshes.add(Capsule3d::new(0.1, 1.8)),
-                    material: materials.add(Color::srgb_u8(124, 144, 255)),
-                    ..default()
-                    },
-                    NetworkIdentity { owner_id: ev.sender, id },
-                    NetworkedTransform{synced: true, target: Vec3::ZERO},
-                    CharacterControllerBundle::new(Collider::capsule(0.1, 1.8), Vec3::NEG_Y * 9.81 * 2.0)
-                    .with_movement(30.0, 0.92, 7.0, 30_0_f32.to_radians()),
-                )).with_children(|parent| {
-                    parent.spawn((
-                         Camera3dBundle {
-                            transform: Transform::from_xyz(0., 1.8, 0.),
-                            ..default()
-                        },
-                        
-                        FpsCamera { sensitivity: 0.5 }
-                    ));
-                });
-                */
     }
 }
 
