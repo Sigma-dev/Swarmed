@@ -1,3 +1,4 @@
+use core::panic;
 use std::f32::consts::PI;
 use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
 
@@ -62,76 +63,42 @@ fn handle_ik(
         }
         arm.up = arm.up.normalize();
         for child in children_query.iter_descendants(arm_entity) {
+            //Get the info from bevy
             let Ok((entity, skinned_mesh)) = parent_query.get(child) else {continue;};
-            let target_position: Vec3 = arm.target;
             let Ok([root_transform]) = gtransform_query.get_many([arm_entity]) else { println!("fuck"); continue; };
             let Ok([mut t0, mut t1, mut arm_transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], arm_entity]) else { println!("fuck"); continue; };
-            let l1: f32 = t0.translation.distance(t1.translation);
-            let l2: f32 = t0.translation.distance(t1.translation);
-            let mut target_direction = (target_position - root_transform.translation()).normalize();
-            let knee_circle_center = (target_position - root_transform.translation()) / 2.;
-            let knee_circle_distance = root_transform.translation().distance(knee_circle_center);
-            let knee_circle_radius = (l1.powi(2) - knee_circle_distance.powi(2)).sqrt();
-            let Ok(knee_circle_normal) = Dir3::new(target_direction) else { println!("woops"); return;};
-            //gizmos.circle(knee_circle_center, knee_circle_normal, knee_circle_radius, Color::srgb(0., 0.5, 0.));
-            //gizmos.line(knee_circle_center, knee_circle_center + arm.up, Color::srgb(0.5, 0.0, 0.));
-            let squished_up = squish_on_plane(arm.up, knee_circle_normal.as_vec3(), knee_circle_radius); //Maybe jitter will be caused by varying solutions when the up is close the the normal. Rejecting corrections when the projected vector is small could be a workaround
-            let knee_target = knee_circle_center + squished_up;
-            //gizmos.line(knee_circle_center, knee_circle_center + squished_up, Color::srgb(0.5, 0.5, 0.5));
-            //gizmos.line(knee_circle_center, knee_target, Color::srgb(0.5, 0.5, 0.));
-            //gizmos.sphere(knee_target, Quat::IDENTITY, 0.2, Color::srgb(0., 1., 0.));
-            //let vertical_rot = (-t0.up()).xz().angle_between(target_direction.xz());
-            //target_direction = (arm.target - root_transform.translation()).normalize();
-            let mut knee_direction= (knee_target - root_transform.translation()).normalize();
-            let mut knee_to_target_direction = target_position - knee_target; 
-            //knee_direction = (arm.target - root_transform.translation()).normalize();
-            //let lean_rot = t0.up().xy().angle_between(knee_direction.xy());
-            //let mut ln_rot = root_transform.up().xy().angle_between(knee_direction.xy()); //Lean rot is almost perfect, but doesn't work when moving along the z axis
-            let flat_dir = Vec3::new(target_direction.x, 0., target_direction.z);
-            let mut ln_rot = signed_angle_between(root_transform.up().as_vec3(), knee_direction, flat_dir);
-            ln_rot = root_transform.up().as_vec3().angle_between(knee_direction);
-            //let vertical_rot = t0.right().xz().angle_between(knee_direction.xz());
-            //let mut vt_rot: f32 = -root_transform.right().xz().angle_between(knee_direction.xz()); // These vertical angle calculations are bogus
+            
+            //Calculate the important positions
+            let root = t0.translation;
+            let l1: f32 = root.distance(t1.translation);
+            let l2: f32 = root.distance(t1.translation);
+            let target_position: Vec3 = arm.target;
+            let knee_position: Vec3 = get_knee_position(&mut gizmos, root, target_position, arm.up, l1, l2);
+
+            //Visualize stuff
+            gizmos.line(knee_position, target_position, Color::srgb(0., 0.5, 0.));
+            gizmos.sphere(knee_position, Quat::IDENTITY, 0.1, Color::srgb(0., 1., 0.));
+
+            //Rotate the bones (t0 & t1) so that the mesh matches the positions
+            let knee_direction: Vec3= (knee_position - root_transform.translation()).normalize();
+            let ln_rot = root_transform.up().as_vec3().angle_between(knee_direction);
             let mut vt_rot: f32 = -(root_transform.right()).xz().angle_between(knee_direction.xz());
             vt_rot += PI;
-            let mut ls_rot = knee_direction.angle_between(knee_to_target_direction);
-            //println!("{knee_direction} {knee_to_target_direction}");
-          //  gizmos.line(root_transform.translation(), root_transform.translation() + (target_direction * 2.), Color::srgb(1., 1., 1.));
-            //gizmos.line(root_transform.translation(), root_transform.translation() + knee_direction, Color::srgb(1., 1., 1.));
-            if (ln_rot.is_nan()) {
-                println!("Rot nan");
-                ln_rot = PI / 2.;
-                continue;
-            }
-            //let sa = signed_angle_2(root_transform.up().as_vec3(), knee_direction);
-            //println!("{sa}");
-            let dot = knee_direction.with_y(0.).dot(target_direction.with_y(0.));
-            //println!("Dot: {} {} {}", dot, knee_direction, target_direction);
-           // println!("lean_rot: {}", ln_rot.to_degrees());
-            if (dot < 0.) {
-                ln_rot = -ln_rot;
-               // ln_rot += PI; 
-                    //vt_rot += PI;
-                //vt_rot = vt_rot.abs() + PI / 2.;
-            }
-            //ls_rot = -ls_rot;
-            //println!("lean_rot: {}", ln_rot.to_degrees());
             t0.rotation = Quat::from_euler(EulerRot::XYZ, 0., vt_rot, ln_rot);
-            //println!("angle: {}", time.elapsed_seconds().to_degrees());
-            //arccos(dot(A,B) / (|A|* |B|)).
-            let mut angle =  squished_up.dot(-Vec3::Y).acos();
-            let knee_to_circle_center = (knee_target - knee_circle_center).normalize();
-            angle = (-Vec3::Y).angle_between(knee_target - knee_circle_center);
-            //gizmos.line(knee_target, knee_target + arm_transform.down() * 2., Color::srgb(0., 0., 1.));
-            //gizmos.line(knee_circle_center, knee_circle_center + (knee_to_circle_center * 2.), Color::srgb(1., 1., 1.));
-            println!("{}", angle.to_degrees());
-            //t0.rotate_local_y(time.elapsed_seconds());
-            //t1.rotation = Quat::from_euler(EulerRot::XYZ, 0., 0., ls_rot);
-            //t0.rotate(Quat::from_euler(EulerRot::XYZ, 0., vertical_rot - PI/2., lean_rot));
-            //t0.rotate(Quat::from_euler(EulerRot::XYZ, 0., 0., lean_rot)); seems to work for lean
-            //t0.rotation = Quat::from_euler(EulerRot::XYZ, 0. ,0., lean_rot);
         }
     }
+}
+
+fn get_knee_position(gizmos: &mut Gizmos, root: Vec3, target: Vec3, up: Vec3, l1: f32, l2: f32) -> Vec3 {
+    let target_direction = (target - root).normalize();
+    let knee_circle_center = (target - root) / 2.;
+    let knee_circle_distance = root.distance(knee_circle_center);
+    let knee_circle_radius = (l1.powi(2) - knee_circle_distance.powi(2)).sqrt();
+    let Ok(knee_circle_normal) = Dir3::new(target_direction) else { panic!() };
+    let squished_up = squish_on_plane( up, knee_circle_normal.as_vec3(), knee_circle_radius); //Maybe jitter will be caused by varying solutions when the up is close the the normal. Rejecting corrections when the projected vector is small could be a workaround
+    let knee_position = knee_circle_center + squished_up;
+    gizmos.circle(knee_circle_center, knee_circle_normal, knee_circle_radius, Color::srgb(0., 0., 0.5));
+    return knee_position
 }
 
 fn squish_on_plane(v: Vec3, normal: Vec3, radius: f32) -> Vec3 {
