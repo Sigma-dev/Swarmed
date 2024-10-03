@@ -45,7 +45,6 @@ pub fn spawn_test_arm(
             material: materials.add(Color::srgb_u8(10, 10, 10)),
             ..default()
         },
-        Movable,
     )).id();
 
     commands.spawn((SceneBundle {
@@ -58,7 +57,8 @@ pub fn spawn_test_arm(
             up: Vec3::Y
         },
         Name::new("Arm"),
-        IKArmTarget {target}
+        IKArmTarget {target},
+        Movable,
     )
     );
 }

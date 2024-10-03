@@ -60,8 +60,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         }
     ));
 
-    //spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
-    spawn_test_arm(&mut commands, &asset_server, &mut meshes, &mut materials);
+    spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
+    //spawn_test_arm(&mut commands, &asset_server, &mut meshes, &mut materials);
         
     commands.spawn(SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),

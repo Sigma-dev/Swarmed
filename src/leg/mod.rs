@@ -241,7 +241,7 @@ fn handle_legs(
             let mut custom = Transform::from(*leg_creature_transform);
             let new_pos = leg_creature_transform.transform_point(leg_creature.target_offset);
             let new_diff = new_pos - leg_creature_transform.translation();
-            gizmos.line(leg_creature_transform.translation(), leg_creature_transform.translation() + new_diff * 2., Color::linear_rgb(1., 0., 0.));
+            //gizmos.line(leg_creature_transform.translation(), leg_creature_transform.translation() + new_diff * 2., Color::linear_rgb(1., 0., 0.));
             //let target_transform = *leg_creature_transform;
            // let target_transform = target_transform.compute_transform() +
             let mut desired_pos: Vec3 = leg_creature_transform.transform_point(*leg_offset + leg.step_offset) + new_diff;
@@ -311,6 +311,7 @@ fn handle_legs(
                     leg.stepping = false;
                 }
             }
+            arm.up = leg_creature.up;
         }
     }
 }
@@ -329,13 +330,13 @@ fn find_step(
     let origin2 = custom.translation + (custom.translation - transform.translation).normalize() * 1.5;
     let ray = Ray3d::new(origin, (desired_pos - origin).normalize());
     let ray2 = Ray3d::new(origin2, (desired_pos - origin2).normalize());
-    raycast.debug_cast_ray(ray2, &raycast_settings, &mut gizmos);
-    if let Some((hit, hit_data)) = raycast.debug_cast_ray(ray, &raycast_settings, &mut gizmos).first() {
+    raycast.cast_ray(ray2, &raycast_settings);
+    if let Some((hit, hit_data)) = raycast.cast_ray(ray, &raycast_settings).first() {
         if (hit_data.distance() < 1.5) {
             return Some(hit_data.position());
         }
     }
-    if let Some((hit, hit_data)) = raycast.debug_cast_ray(ray2, &raycast_settings, &mut gizmos).first() {
+    if let Some((hit, hit_data)) = raycast.cast_ray(ray2, &raycast_settings).first() {
         if (hit_data.distance() < 4.) {
             return Some(hit_data.position());
         }
