@@ -3,7 +3,7 @@ use bevy::{color::palettes::css::BLACK, math::{NormedVectorSpace, VectorSpace}, 
 use bevy_mod_raycast::prelude::*;
 use itertools::Itertools;
 
-use crate::{leg, IKArm};
+use crate::{leg, GroundMarker, IKArm};
 #[derive(Copy, Clone, PartialEq, Default)]
 pub enum LegSide {
     Left,
@@ -76,28 +76,7 @@ fn setup_legs(
   ) {
     let Ok((transform, mut arm, leg)) = leg_query.get_mut(trigger.entity()) else {return;};
     arm.target = transform.translation() + leg.step_offset;
-    //println!("SETUP LEG");
 }
-
-/*
-fn handle_height(
-    leg_query: Query<&IKArm::IKArm>,
-    mut leg_creature_query: Query<(Entity, &mut Transform, &mut LegCreature)>,
-    children_query: Query<&Children>,
-) {
-    for (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
-        let mut sum = Vec3::ZERO;
-        let mut n = 0;
-        for child in children_query.iter_descendants(creature_entity) {
-            let Ok((mut arm)) = leg_query.get(child) else {continue;};
-            sum += arm.target;
-            n += 1;
-        }
-        let median = sum / n as f32;
-        transform.translation.y = transform.translation.y.lerp(median.y + leg_creature.target_height, 0.1);
-    }
-}
- */
 
 fn move_creature(
     mut creature_query: Query<&mut LegCreature>,
@@ -124,7 +103,6 @@ fn move_creature(
             vec.y -= 1.0
         }
         creature.target_offset = vec * creature.speed_mult;
-        //println!("OFFSET: {}", creature.target_offset);
 
     }
 }
@@ -138,7 +116,6 @@ fn handle_visual(
         transform.rotation = transform.rotation.slerp(target.rotation, 0.05);
         let (x, y, z) = transform.rotation.to_euler(EulerRot::XYZ);
         let (a, b, c) = target.rotation.to_euler(EulerRot::XYZ);
-        //println!("normal: {}, rota: {}, target: {}", leg_creature.up, Vec3::new(x.to_degrees(), y.to_degrees(), z.to_degrees()), Vec3::new(a.to_degrees(), b.to_degrees(), c.to_degrees()));
     }
 }
 
@@ -154,7 +131,6 @@ fn handle_height(
         for v in leg_creature.legs_info.iter().combinations(3) {
             let legs= [v[0].0, v[1].0, v[2].0];
             let Ok([(a, a_name), (b, b_name), (c, c_name)]) = leg_query.get_many_mut(legs) else {continue;};
-            //println!("{} {} {}", a_name, b_name, c_name);
             let v1 = a.target;
             let v2 = b.target;
             let v3 = c.target; 
@@ -168,14 +144,11 @@ fn handle_height(
         }
         let normal_average = (normal_total / i as f32).normalize();
         let pos_average = pos_total / i as f32;
-        //transform.translation.y = transform.translation.y.lerp(pos_average.y + leg_creature.target_height, 0.1);
         let mut target_transform = *transform;
         target_transform.translation = pos_average;
 
         let target = target_transform.transform_point(Vec3::Y * leg_creature.target_height);
-       // gizmos.line(transform.translation, transform.transform_point(Vec3::Y * leg_creature.target_height * 10.), BLACK);
         transform.translation = transform.translation.lerp(target, 0.1);
-      //  println!("{}", transform.translation);
         if (!normal_average.is_nan()) {
             leg_creature.up = normal_average;
         }
@@ -231,68 +204,31 @@ fn handle_legs(
     mut leg_query: Query<(&GlobalTransform, &mut IKArm::IKArm, &mut IKLeg)>,
     mut raycast: Raycast,
     mut gizmos: Gizmos,
+    names_query: Query<&Name>,
     time: Res<Time>,
+    ground_query: Query<Entity, With<GroundMarker>>
 ) {
-    //let group = get_highest_distance_group(&leg_query);
     for (creature_entity, mut leg_creature, leg_creature_transform) in leg_creature_query.iter() {
         for (leg_entity, leg_offset) in &leg_creature.legs_info {
             let Ok((transform,mut arm, mut leg)) = leg_query.get_mut(*leg_entity) else {continue;};
-            //let mut desired_pos: Vec3 = transform.translation() + leg.step_offset;
             let mut custom = Transform::from(*leg_creature_transform);
             let new_pos = leg_creature_transform.transform_point(leg_creature.target_offset);
             let new_diff = new_pos - leg_creature_transform.translation();
-            //gizmos.line(leg_creature_transform.translation(), leg_creature_transform.translation() + new_diff * 2., Color::linear_rgb(1., 0., 0.));
-            //let target_transform = *leg_creature_transform;
-           // let target_transform = target_transform.compute_transform() +
             let mut desired_pos: Vec3 = leg_creature_transform.transform_point(*leg_offset + leg.step_offset) + new_diff;
-            /* 
-            custom.translation = desired_pos;
-            custom.translation = custom.transform_point(Vec3::Y * 1.);
-            //custom.translation -= (custom.translation - leg_creature_transform.translation()).normalize() / 2.;
-            //println!("actual: {}, new: {}, offset: {}", desired_pos, new_desired_pos, leg.step_offset);
-            //println!("old: {}, new: {}, offset: {}", old_desired_pos, desired_pos, leg.step_offset);
-            //let mut origin = (leg_creature_transform.transform_point(Vec3::Y * 1.));
-            let origin = custom.translation - (custom.translation - leg_creature_transform.translation()).normalize() / 2.;
-            let origin2 = custom.translation + (custom.translation - leg_creature_transform.translation()).normalize() / 2.;
-            let dir = (desired_pos - origin).normalize();
-            //let ray = Ray3d::new(desired_pos + Vec3::Y, Vec3::NEG_Y);
-            let ray = Ray3d::new(origin, dir);
-            let ray2 = Ray3d::new(origin2, (desired_pos - origin2).normalize());
-            let hits: &[(Entity, IntersectionData)] = raycast.debug_cast_ray(ray, &RaycastSettings::default().with_filter(&|entity| entity != creature_entity && entity != *leg_entity), &mut gizmos);
-            if let Some((hit, hit_data)) = hits.first() {
-            //   println!("{}", hit_data.position().y);
-                if (hit_data.distance() < 2.) {
-                    arm.up = hit_data.normal();
-                    desired_pos = hit_data.position();
-                } else {
-                    desired_pos = arm.target
-                }
-            } else {
-                desired_pos = arm.target;
-            }
-            let hits2: &[(Entity, IntersectionData)] = raycast.debug_cast_ray(ray2, &RaycastSettings::default().with_filter(&|entity| entity != creature_entity && entity != *leg_entity), &mut gizmos);
-            */
-            if let Some(pos) = find_step(Transform::from(*leg_creature_transform), desired_pos, &mut raycast, RaycastSettings::default().with_filter(&|entity| entity != creature_entity && entity != *leg_entity), &mut gizmos) {
+            let settings = RaycastSettings {
+                visibility: RaycastVisibility::Ignore,
+                filter: &|entity| is_valid_raycast_target(entity, &names_query),
+                ..default()
+            };
+
+            if let Some(pos) = find_step(Transform::from(*leg_creature_transform), desired_pos, &mut raycast, settings, &mut gizmos, &names_query) {
+                gizmos.sphere(pos, Quat::IDENTITY, 0.1, Color::srgb(1., 0., 0.));
                 desired_pos = pos;
             } else {
                 desired_pos = arm.target;
             }
-            /*
-            if let Some((hit, hit_data)) = hits2.first() {
-                //   println!("{}", hit_data.position().y);
-                    if (hit_data.distance() < 2.) {
-                        arm.up = hit_data.normal();
-                        desired_pos = hit_data.position();
-                    } else {
-                        desired_pos = arm.target
-                    }
-                } else {
-                    desired_pos = arm.target;
-                }
- */
 
             let distance = arm.target.distance(desired_pos);
-            //println!("{}", distance);
             if (!leg.stepping) {
                 if (distance > leg.step_distance && leg.can_start_step) {
                     leg.stepping = true;
@@ -316,12 +252,20 @@ fn handle_legs(
     }
 }
 
+fn is_valid_raycast_target(entity: Entity, names_query: &Query<&Name>) -> bool {
+    match names_query.get(entity) {
+        Ok(name) => { name.as_str().contains("Cube") },
+        Err(_) => false,
+    }
+}
+
 fn find_step(
     transform: Transform,
     desired_pos: Vec3,
     raycast: &mut Raycast,
     raycast_settings: RaycastSettings,
-    mut gizmos: &mut Gizmos
+    mut gizmos: &mut Gizmos,
+    names: &Query<&Name>
 ) -> Option<Vec3> {
     let mut custom = Transform::from(transform);
     custom.translation = desired_pos;
@@ -331,17 +275,18 @@ fn find_step(
     let ray = Ray3d::new(origin, (desired_pos - origin).normalize());
     let ray2 = Ray3d::new(origin2, (desired_pos - origin2).normalize());
     raycast.cast_ray(ray2, &raycast_settings);
-    if let Some((hit, hit_data)) = raycast.cast_ray(ray, &raycast_settings).first() {
-        if (hit_data.distance() < 1.5) {
+    let hits = raycast.cast_ray(ray, &raycast_settings);
+    if let Some((hit, hit_data)) = hits.first() {
+        if hit_data.distance() < 1.5 {
             return Some(hit_data.position());
         }
     }
-    if let Some((hit, hit_data)) = raycast.cast_ray(ray2, &raycast_settings).first() {
-        if (hit_data.distance() < 4.) {
+    let hits2 = raycast.cast_ray(ray2, &raycast_settings);
+    if let Some((hit, hit_data)) = hits2.first() {
+        if hit_data.distance() < 4. {
             return Some(hit_data.position());
         }
     }
-    //println!("Found nothing");
     return None;
 }
 

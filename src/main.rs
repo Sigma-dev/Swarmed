@@ -19,6 +19,9 @@ struct MultiPosCamera {
     index: i32
 }
 
+#[derive(Component)]
+struct GroundMarker;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -31,15 +34,6 @@ fn main() {
         .add_systems(Update, (movable, multi_pos_camera))
        // .observe(modify_meshes)
         .run();
-}
-
-fn modify_meshes(
-    trigger: Trigger<OnAdd, Handle<Mesh>>,
-    mut commands: Commands,
-  ) {
-    commands
-      .entity(trigger.entity())
-      .insert(NoBackfaceCulling);
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>,
@@ -63,11 +57,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
     spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
     //spawn_test_arm(&mut commands, &asset_server, &mut meshes, &mut materials);
         
-    commands.spawn(SceneBundle {
+    commands.spawn((
+        SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
         ..Default::default()
-    });
+        },
+        GroundMarker,
+    ));
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,

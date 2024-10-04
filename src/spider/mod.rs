@@ -8,16 +8,6 @@ pub fn spawn_spider(
     mut meshes: &mut ResMut<Assets<Mesh>>,
     mut materials: &mut ResMut<Assets<StandardMaterial>>
 ) {
-    let target = commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.1, 0.1, 0.1)),
-            material: materials.add(Color::srgb_u8(124, 144, 255)),
-            transform: Transform::from_xyz(-0.5, 0., 0.),
-            ..default()
-        },
-        Movable,
-    )).id();
-
     let legs_info: Vec<(Entity, Vec3)> = spawn_legs(&mut commands, &asset_server);
 
     commands.spawn((
@@ -28,7 +18,8 @@ pub fn spawn_spider(
             ..default()
         },
         //Movable,
-        LegCreature::new(LegSide::None, 0.2, legs_info, 0.2)
+        LegCreature::new(LegSide::None, 0.2, legs_info, 0.2),
+        Name::new("SpiderBody")
     ));
 }
 
@@ -79,7 +70,6 @@ fn spawn_legs(
             let side3 = if j == 0 { side } else {side2};
             let collector = if (i == 0) { &mut left_legs } else {&mut right_legs };
             let name = format!("{i}{j}", i=i, j=j);
-            println!("Name: {}", name);
             collector.push((commands.spawn((SceneBundle {
                 scene: asset_server
                     .load(GltfAssetLabel::Scene(0).from_asset("leg/leg.glb")),

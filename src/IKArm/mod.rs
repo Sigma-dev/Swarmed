@@ -104,8 +104,7 @@ fn get_knee_position(gizmos: &mut Gizmos, root: Vec3, target: Vec3, up: Vec3, l1
     let Ok(knee_circle_normal) = Dir3::new(target_direction) else { return None };
     let squished_up = squish_on_plane( up, knee_circle_normal.as_vec3(), knee_circle_radius); //Maybe jitter will be caused by varying solutions when the up is close the the normal. Rejecting corrections when the projected vector is small could be a workaround
     let knee_position = knee_circle_center + squished_up;
-   // println!("{} {}", target, root);
-    //gizmos.circle(knee_circle_center, knee_circle_normal, knee_circle_radius, Color::srgb(0., 0., 0.5));
+
     if knee_position.is_nan() { return None };
     return Some(knee_position);
 }

@@ -1,34 +1,16 @@
 Ideas to fix spider
 
-Solution 1: Fix the fix (point the knee afterwards)
-Problem: For some reason, rotating the knee every frame to try and point it results in lots of jitter. This could
-be because the difference calculation is wrong, or that it gives a correction when there is no problem.
+TODO:
+Try to make the body unaffected by the legs' doing .
+    - Just a floating square that keeps n centimeters away from the ground, and the legs just follow as best they can
+    - Might be necessary for controlling the AI reliably
 
-Solution 2: Integrate it into a new system
-Problem: If a time fix can't work, then we need to integrate the orientation into the ik solving itself.
-First solve the problem of putting the knee so that it is at distance l2 of the target and l1 of the root and at the same time is the closest it can be from the point defined by offsetting the center of the knee rotation towards the up direction.
-Then from that knee position, solve to get to the target.
+Give it the ability to rotate on itself.
+    - The stride is more natural in the forward direction than sideways
 
-Implementation:
-Compute where the knee possible rotations circles would be in world space.
-Squish the up vector so that it is aligned with the circle. if it is orthogonal or the length is too small, stop the process here.
-Normalize the vector and get the point on the circle where it is.
-Solve t0 rotation to get the knee to that point
-Solve t1 to get the end point to the target.
+--------------------------------------------------
 
-Implementation steps:
-Get the rotation circle center position V
-Gizmo the rotation circle facing the correct direction V
-Gizmo the up vector V
-Make a way to rotate the up vector in every direction V
-Find a way to squish the up vector onto the circle V
-Gizmo the squished up vector V
-Gizmo the point on the circle that the squished up vector points towards V
-Get the knee on that point V
-Add a way to change the up vector dynamically V
-Check if knee orientation still works
-Get the knee orientation to always face the same side towards the target
-Get the the end of the leg on the target
-check if it works in all up configurations
-check on spider
-LETS FUCKKING GOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+DONE:
+Add joint orientation V (Work well to fix legs while climbing walls)
+Filter so that the raycasts only take the ground mesh into account V (Implemented with name compare because of gltf limitations, and the name doesn't seem to sync with the updated gltf)
+
