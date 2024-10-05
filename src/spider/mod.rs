@@ -73,7 +73,7 @@ fn spawn_legs(
             collector.push((commands.spawn((SceneBundle {
                 scene: asset_server
                     .load(GltfAssetLabel::Scene(0).from_asset("leg/leg.glb")),
-                ..default()
+                    ..default()
                 }, 
                 IKArm::IKArm { 
                     target: Vec3{x: 1., y: 0., z: 1.},

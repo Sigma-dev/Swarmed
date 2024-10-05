@@ -79,11 +79,12 @@ fn setup_legs(
 }
 
 fn move_creature(
-    mut creature_query: Query<&mut LegCreature>,
+    mut creature_query: Query<(&mut Transform, &mut LegCreature)>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    for (mut creature) in creature_query.iter_mut() {
+    for (mut transform, mut creature) in creature_query.iter_mut() {
         let mut vec = Vec3::ZERO;
+        let mut rotation = 0.;
         if keys.pressed(KeyCode::KeyW) {
             vec.z += 1.0
         }
@@ -97,13 +98,13 @@ fn move_creature(
             vec.x += 1.0
         }
         if keys.pressed(KeyCode::KeyQ) {
-            vec.y += 1.0
+            rotation = 1.
         }
         if keys.pressed(KeyCode::KeyE) {
-            vec.y -= 1.0
+            rotation = -1.
         }
         creature.target_offset = vec * creature.speed_mult;
-
+        transform.rotate_local_y(rotation * 0.01);
     }
 }
 
@@ -149,7 +150,7 @@ fn handle_height(
 
         let target = target_transform.transform_point(Vec3::Y * leg_creature.target_height);
         transform.translation = transform.translation.lerp(target, 0.1);
-        if (!normal_average.is_nan()) {
+        if !normal_average.is_nan() {
             leg_creature.up = normal_average;
         }
     };     
@@ -189,8 +190,8 @@ fn handle_leg_creature(
     for (creature_entity, mut leg_creature, leg_creature_transform) in leg_creature_query.iter() {
         for (leg_entity, leg_offset) in &leg_creature.legs_info {
             let Ok((mut leg, mut leg_transform)) = leg_query.get_mut(*leg_entity) else {continue;};
-            leg_transform.translation = leg_creature_transform.translation() + *leg_offset;
-            if (leg.leg_side == leg_creature.current_side) {
+            leg_transform.translation = leg_creature_transform.transform_point(*leg_offset);
+            if leg.leg_side == leg_creature.current_side {
                 leg.can_start_step = true;
             } else {
                 leg.can_start_step = false;
@@ -214,7 +215,8 @@ fn handle_legs(
             let mut custom = Transform::from(*leg_creature_transform);
             let new_pos = leg_creature_transform.transform_point(leg_creature.target_offset);
             let new_diff = new_pos - leg_creature_transform.translation();
-            let mut desired_pos: Vec3 = leg_creature_transform.transform_point(*leg_offset + leg.step_offset) + new_diff;
+           let mut desired_pos: Vec3 = leg_creature_transform.transform_point(*leg_offset + leg.step_offset) + new_diff;
+           let mut target = arm.target;
             let settings = RaycastSettings {
                 visibility: RaycastVisibility::Ignore,
                 filter: &|entity| is_valid_raycast_target(entity, &names_query),
@@ -222,27 +224,24 @@ fn handle_legs(
             };
 
             if let Some(pos) = find_step(Transform::from(*leg_creature_transform), desired_pos, &mut raycast, settings, &mut gizmos, &names_query) {
-                gizmos.sphere(pos, Quat::IDENTITY, 0.1, Color::srgb(1., 0., 0.));
-                desired_pos = pos;
-            } else {
-                desired_pos = arm.target;
+                target = pos;
             }
 
-            let distance = arm.target.distance(desired_pos);
-            if (!leg.stepping) {
-                if (distance > leg.step_distance && leg.can_start_step) {
+            let distance = arm.target.distance(target);
+            if !leg.stepping {
+                if distance > leg.step_distance && leg.can_start_step {
                     leg.stepping = true;
                     leg.step_elapsed = 0.;
                     leg.step_start = arm.target;
                 }
             } else {
                 let step_progress = leg.step_elapsed / leg.step_duration;
-                arm.target = leg.step_start.lerp(desired_pos, leg.step_elapsed / leg.step_duration);
+                arm.target = leg.step_start.lerp(target, leg.step_elapsed / leg.step_duration);
                 let y_offset = (1. - ((step_progress * 2.) - 1.).abs()) * leg.step_height;
                 arm.target.y = leg.step_start.y + y_offset;
                 leg.step_elapsed += time.delta_seconds();
-                if (leg.step_elapsed >= leg.step_duration) {
-                    arm.target = desired_pos;
+                if leg.step_elapsed >= leg.step_duration {
+                    arm.target = target;
 
                     leg.stepping = false;
                 }
@@ -288,26 +287,4 @@ fn find_step(
         }
     }
     return None;
-}
-
-fn get_highest_distance_group(
-    mut leg_query: &Query<(&GlobalTransform, &mut IKArm::IKArm, &mut IKLeg)>,
-) -> LegSide {
-    let mut left_dist = 0.;
-    let mut right_dist = 0.;
-    
-    for (transform, arm, leg) in leg_query.iter() {
-        let desired_pos = transform.translation() + leg.step_offset;
-        let distance = arm.target.distance(desired_pos);
-        match leg.leg_side {
-            LegSide::Left => left_dist += distance,
-            LegSide::Right => right_dist += distance,
-            LegSide::None => {},
-        }
-    }
-    if (left_dist > right_dist) {
-        return LegSide::Left
-    } else {
-        return LegSide::Right
-    }
 }
