@@ -4,13 +4,17 @@ TODO:
 Try to make the body unaffected by the legs' doing .
     - Just a floating square that keeps n centimeters away from the ground, and the legs just follow as best they can
     - Might be necessary for controlling the AI reliably
+    - Might also not be necessary and hurt the realism
 
-Give it the ability to rotate on itself.
-    - The stride is more natural in the forward direction than sideways
+Tweak Raycasts position direction length etc...
+
+Tweak stride length etc...
 
 --------------------------------------------------
 
 DONE:
+
+Give it the ability to rotate on itself V
 Add joint orientation V (Work well to fix legs while climbing walls)
 Filter so that the raycasts only take the ground mesh into account V (Implemented with name compare because of gltf limitations, and the name doesn't seem to sync with the updated gltf)
 

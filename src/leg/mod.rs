@@ -103,6 +103,7 @@ fn move_creature(
         if keys.pressed(KeyCode::KeyE) {
             rotation = -1.
         }
+        if vec != Vec3::ZERO { vec = vec.normalize(); };
         creature.target_offset = vec * creature.speed_mult;
         transform.rotate_local_y(rotation * 0.01);
     }
@@ -273,7 +274,6 @@ fn find_step(
     let origin2 = custom.translation + (custom.translation - transform.translation).normalize() * 1.5;
     let ray = Ray3d::new(origin, (desired_pos - origin).normalize());
     let ray2 = Ray3d::new(origin2, (desired_pos - origin2).normalize());
-    raycast.cast_ray(ray2, &raycast_settings);
     let hits = raycast.cast_ray(ray, &raycast_settings);
     if let Some((hit, hit_data)) = hits.first() {
         if hit_data.distance() < 1.5 {

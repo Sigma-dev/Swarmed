@@ -1,4 +1,4 @@
-use std::f32::{consts::*, NAN};
+use std::{env, f32::{consts::*, NAN}};
 use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
@@ -23,6 +23,7 @@ struct MultiPosCamera {
 struct GroundMarker;
 
 fn main() {
+    env::set_var("RUST_BACKTRACE", "1");
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins((IKArmPlugin, LegPlugin))
