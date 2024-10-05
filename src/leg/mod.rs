@@ -104,7 +104,9 @@ fn move_creature(
             rotation = -1.
         }
         if vec != Vec3::ZERO { vec = vec.normalize(); };
-        creature.target_offset = vec * creature.speed_mult;
+        creature.target_offset = -vec * creature.speed_mult;
+        let copy = transform.clone();
+        transform.translation += ((copy.forward() * vec.z) + (copy.right() * vec.x))  * creature.speed_mult * 0.05;
         transform.rotate_local_y(rotation * 0.01);
     }
 }
@@ -121,6 +123,7 @@ fn handle_visual(
     }
 }
 
+/* 
 fn handle_height(
     mut leg_creature_query: Query<(Entity, &mut Transform, &mut LegCreature)>,
     mut leg_query: Query<(&IKArm::IKArm, &Name)>,
@@ -151,6 +154,55 @@ fn handle_height(
 
         let target = target_transform.transform_point(Vec3::Y * leg_creature.target_height);
         transform.translation = transform.translation.lerp(target, 0.1);
+        if !normal_average.is_nan() {
+            leg_creature.up = normal_average;
+        }
+    };     
+}
+*/
+
+fn handle_height(
+    mut leg_creature_query: Query<(Entity, &mut Transform, &mut LegCreature)>,
+    mut leg_query: Query<(&IKArm::IKArm, &Name)>,
+    mut raycast: Raycast,
+    mut gizmos: Gizmos,
+    names_query: Query<&Name>,
+) {
+    'outer: for (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
+        let mut normal_total = Vec3::ZERO;
+        let mut pos_total = Vec3::ZERO;
+        let mut i = 0;
+        for v in leg_creature.legs_info.iter().combinations(3) {
+            let legs= [v[0].0, v[1].0, v[2].0];
+            let Ok([(a, a_name), (b, b_name), (c, c_name)]) = leg_query.get_many_mut(legs) else {continue;};
+            let v1 = a.target;
+            let v2 = b.target;
+            let v3 = c.target; 
+            if (v1 == v2 || v2 == v3 || v1.is_nan() || v2.is_nan() || v3.is_nan()) {
+                continue 'outer;
+            }
+            let (plane, pos) = InfinitePlane3d::from_points(v1, v2, v3);
+            normal_total += *plane.normal;
+            pos_total += pos;
+            i += 1;
+        }
+        let normal_average = (normal_total / i as f32).normalize();
+        let settings = RaycastSettings {
+            visibility: RaycastVisibility::Ignore,
+            filter: &|entity| is_valid_raycast_target(entity, &names_query),
+            ..default()
+        };
+        let origin = transform.translation;
+        let ray = Ray3d::new(origin, transform.down().as_vec3());
+        let hits = raycast.cast_ray(ray, &settings);
+        let mut delta = 0.;
+        if let Some((hit, hit_data)) = hits.first() {
+            println!("{}", hit_data.distance());
+            if hit_data.distance() < 0.5 {
+                delta = 0.2 - hit_data.distance()
+            }
+        }
+        transform.translation = transform.translation.lerp(transform.translation + transform.up() * delta, 0.05) ;
         if !normal_average.is_nan() {
             leg_creature.up = normal_average;
         }
@@ -270,19 +322,47 @@ fn find_step(
     let mut custom = Transform::from(transform);
     custom.translation = desired_pos;
     custom.translation = custom.transform_point(Vec3::Y * 1.);
+    let spider_pos = transform.translation;
     let origin = custom.translation - (custom.translation - transform.translation).normalize() * 0.75;
     let origin2 = custom.translation + (custom.translation - transform.translation).normalize() * 1.5;
+    /*
     let ray = Ray3d::new(origin, (desired_pos - origin).normalize());
-    let ray2 = Ray3d::new(origin2, (desired_pos - origin2).normalize());
     let hits = raycast.cast_ray(ray, &raycast_settings);
     if let Some((hit, hit_data)) = hits.first() {
         if hit_data.distance() < 1.5 {
             return Some(hit_data.position());
         }
     }
+     */
+    if let Some(pos) = try_ray(raycast, &raycast_settings, origin, desired_pos, spider_pos, 1.5, Some(gizmos)) {
+        return Some(pos)
+    }
+    if let Some(pos) = try_ray(raycast, &raycast_settings, origin2, desired_pos, spider_pos, 1.5, Some(gizmos)) {
+        return Some(pos)
+    }
+    return None;
+    /* 
+    let ray2 = Ray3d::new(origin2, (desired_pos - origin2).normalize());
     let hits2 = raycast.cast_ray(ray2, &raycast_settings);
     if let Some((hit, hit_data)) = hits2.first() {
         if hit_data.distance() < 4. {
+            return Some(hit_data.position());
+        }
+    }
+    return None;
+    */
+}
+
+fn try_ray(raycast: &mut Raycast, raycast_settings: &RaycastSettings, origin: Vec3, desired_pos: Vec3, reference_pos: Vec3, max_dist: f32, maybe_gizmos: Option<&mut Gizmos>) -> Option<Vec3> {
+    let ray = Ray3d::new(origin, (desired_pos - origin).normalize());
+    let mut hits;
+    if let Some(gizmos) = maybe_gizmos  {
+        hits = raycast.debug_cast_ray(ray, raycast_settings, gizmos)
+    } else {
+        hits = raycast.cast_ray(ray, raycast_settings);
+    }
+    if let Some((hit, hit_data)) = hits.first() {
+        if hit_data.position().distance(reference_pos) < max_dist {
             return Some(hit_data.position());
         }
     }

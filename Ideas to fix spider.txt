@@ -10,6 +10,10 @@ Tweak Raycasts position direction length etc...
 
 Tweak stride length etc...
 
+Make a better auto height adjustment to prevent clipping
+
+Give it more possible raycasts to choose target leg position from and choose the best one (closest to optimal distance from body or smth)
+
 --------------------------------------------------
 
 DONE:
