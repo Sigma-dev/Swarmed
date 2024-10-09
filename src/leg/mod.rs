@@ -268,13 +268,8 @@ fn handle_legs(
             let new_diff = new_pos - leg_creature_transform.translation();
            let mut desired_pos: Vec3 = leg_creature_transform.transform_point(*leg_offset + leg.step_offset) + new_diff;
            let mut target = arm.target;
-            let settings = RaycastSettings {
-                visibility: RaycastVisibility::Ignore,
-                filter: &|entity| is_valid_raycast_target(entity, &names_query),
-                ..default()
-            };
 
-            if let Some(pos) = find_step(Transform::from(*leg_creature_transform), desired_pos, &mut raycast, settings, &mut gizmos, &names_query) {
+            if let Some(pos) = find_step(Transform::from(*leg_creature_transform), desired_pos, &mut raycast, &mut gizmos, &names_query) {
                 target = pos;
             }
 
@@ -289,7 +284,7 @@ fn handle_legs(
                 let step_progress = leg.step_elapsed / leg.step_duration;
                 arm.target = leg.step_start.lerp(target, leg.step_elapsed / leg.step_duration);
                 let y_offset = (1. - ((step_progress * 2.) - 1.).abs()) * leg.step_height;
-                arm.target.y = leg.step_start.y + y_offset;
+                arm.target += leg_creature_transform.up() * y_offset;
                 leg.step_elapsed += time.delta_seconds();
                 if leg.step_elapsed >= leg.step_duration {
                     arm.target = target;
@@ -313,45 +308,39 @@ fn find_step(
     transform: Transform,
     desired_pos: Vec3,
     raycast: &mut Raycast,
-    raycast_settings: RaycastSettings,
     mut gizmos: &mut Gizmos,
-    names: &Query<&Name>
+    names_query: &Query<&Name>
 ) -> Option<Vec3> {
     let mut custom = Transform::from(transform);
     custom.translation = desired_pos;
     custom.translation = custom.transform_point(Vec3::Y * 1.);
-    let spider_pos = transform.translation;
-    let origin = custom.translation - (custom.translation - transform.translation).normalize() * 0.75;
-    let origin2 = custom.translation + (custom.translation - transform.translation).normalize() * 1.5;
-    return get_best_pos(Some(gizmos), raycast, &raycast_settings, &transform, desired_pos)
-    /*
-    let ray = Ray3d::new(origin, (desired_pos - origin).normalize());
-    let hits = raycast.cast_ray(ray, &raycast_settings);
-    if let Some((hit, hit_data)) = hits.first() {
-        if hit_data.distance() < 1.5 {
-            return Some(hit_data.position());
+    let offsets = [
+        transform.up().as_vec3() - transform.forward().as_vec3() * 1.,
+        transform.up().as_vec3() + transform.forward().as_vec3() * 1.,
+        transform.up().as_vec3() + transform.right().as_vec3() * 0.5,
+        transform.up().as_vec3() - transform.right().as_vec3() * 0.5,
+        transform.up().as_vec3(),
+    ];
+
+    let mut hits = Vec::new();
+    let settings = RaycastSettings {
+        visibility: RaycastVisibility::Ignore,
+        filter: &|entity| is_valid_raycast_target(entity, &names_query),
+        ..default()
+    };
+
+    for offset in offsets {
+        let Some(pos) = try_ray(raycast, &settings, desired_pos + offset, desired_pos, Some(&mut gizmos)) else { continue; };
+        if pos.distance_squared(desired_pos) < 5. {
+            hits.push(pos);
         }
     }
-     */
-    /* 
-    if let Some(pos) = try_ray(raycast, &raycast_settings, origin, desired_pos, spider_pos, 1.5, Some(gizmos)) {
-        return Some(pos)
+    if hits.length() == 0 {
+        return None;
     }
-    if let Some(pos) = try_ray(raycast, &raycast_settings, origin2, desired_pos, spider_pos, 1.5, Some(gizmos)) {
-        return Some(pos)
-    }
-    return None;
-    */
-    /* 
-    let ray2 = Ray3d::new(origin2, (desired_pos - origin2).normalize());
-    let hits2 = raycast.cast_ray(ray2, &raycast_settings);
-    if let Some((hit, hit_data)) = hits2.first() {
-        if hit_data.distance() < 4. {
-            return Some(hit_data.position());
-        }
-    }
-    return None;
-    */
+
+    hits.sort_by(|hit_a, hit_b| hit_a.distance_squared(desired_pos).partial_cmp(&hit_b.distance_squared(desired_pos)).unwrap());
+    return Some(*hits.first().unwrap());
 }
 
 fn try_ray(raycast: &mut Raycast, raycast_settings: &RaycastSettings, origin: Vec3, desired_pos: Vec3, maybe_gizmos: Option<&mut Gizmos>) -> Option<Vec3> {
@@ -366,30 +355,4 @@ fn try_ray(raycast: &mut Raycast, raycast_settings: &RaycastSettings, origin: Ve
         return Some(hit_data.position());
     }
     return None;
-}
-
-fn get_best_pos(mut maybe_gizmos: Option<&mut Gizmos>, raycast: &mut Raycast, raycast_settings: &RaycastSettings, transform: &Transform, desired_pos: Vec3) -> Option<Vec3> {
-    let mut custom = Transform::from(*transform);
-    custom.translation = desired_pos;
-    custom.translation = custom.transform_point(Vec3::Y * 1.);
-    let offsets = [
-        transform.up().as_vec3() - transform.forward().as_vec3() * 0.5,
-        transform.up().as_vec3() + transform.forward().as_vec3() * 0.5,
-        transform.up().as_vec3(),
-    ];
-
-    let mut hits = Vec::new();
-
-    for offset in offsets {
-        let Some(pos) = try_ray(raycast, raycast_settings, desired_pos + offset, desired_pos, maybe_gizmos.as_deref_mut()) else { continue; };
-        if pos.distance_squared(desired_pos) < 5. {
-            hits.push(pos);
-        }
-    }
-    if hits.length() == 0 {
-        return None;
-    }
-
-    hits.sort_by(|hit_a, hit_b| hit_a.distance_squared(desired_pos).partial_cmp(&hit_b.distance_squared(desired_pos)).unwrap());
-    return Some(*hits.first().unwrap());
 }
