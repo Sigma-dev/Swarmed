@@ -1,0 +1,11 @@
+Plan A:
+
+1 Get the triangles that make up the path, probably with an A* that uses triangle world position as a proxy for closeness
+2 Lay them flat
+3 Try to draw a straight line between start and target
+
+4 If there is nothing blocking it, you have your path (maybe save every path/triangle intersection into a list and then navigate from one to the next till you reach the end)
+5 If it hits a triangle side, then find which side of that side is adjacent to the next triangle and get the point that links the hit side with that side. Now repeat step 3 from that point
+
+Now to follow the path, get the world position of that point on the current triangle we stored in step 4 and walk towards that.
+We might need to add a buffer zone around the sides of meshes like navmesh do, that would reqire changing steps 3-5 by updating what counts as being "blocked" as crossing that buffer zone too.

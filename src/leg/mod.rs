@@ -1,5 +1,4 @@
-use std::f32::consts::PI;
-use bevy::{color::palettes::css::BLACK, math::{NormedVectorSpace, VectorSpace}, prelude::*, reflect::Array, render::mesh::{self, skinning::SkinnedMesh}};
+use bevy::{prelude::*, render::render_resource::encase::rts_array::Length};
 use bevy_mod_raycast::prelude::*;
 use itertools::Itertools;
 
@@ -197,7 +196,6 @@ fn handle_height(
         let hits = raycast.cast_ray(ray, &settings);
         let mut delta = 0.;
         if let Some((hit, hit_data)) = hits.first() {
-            println!("{}", hit_data.distance());
             if hit_data.distance() < 0.5 {
                 delta = 0.2 - hit_data.distance()
             }
@@ -325,6 +323,7 @@ fn find_step(
     let spider_pos = transform.translation;
     let origin = custom.translation - (custom.translation - transform.translation).normalize() * 0.75;
     let origin2 = custom.translation + (custom.translation - transform.translation).normalize() * 1.5;
+    return get_best_pos(Some(gizmos), raycast, &raycast_settings, &transform, desired_pos)
     /*
     let ray = Ray3d::new(origin, (desired_pos - origin).normalize());
     let hits = raycast.cast_ray(ray, &raycast_settings);
@@ -334,6 +333,7 @@ fn find_step(
         }
     }
      */
+    /* 
     if let Some(pos) = try_ray(raycast, &raycast_settings, origin, desired_pos, spider_pos, 1.5, Some(gizmos)) {
         return Some(pos)
     }
@@ -341,6 +341,7 @@ fn find_step(
         return Some(pos)
     }
     return None;
+    */
     /* 
     let ray2 = Ray3d::new(origin2, (desired_pos - origin2).normalize());
     let hits2 = raycast.cast_ray(ray2, &raycast_settings);
@@ -353,18 +354,42 @@ fn find_step(
     */
 }
 
-fn try_ray(raycast: &mut Raycast, raycast_settings: &RaycastSettings, origin: Vec3, desired_pos: Vec3, reference_pos: Vec3, max_dist: f32, maybe_gizmos: Option<&mut Gizmos>) -> Option<Vec3> {
+fn try_ray(raycast: &mut Raycast, raycast_settings: &RaycastSettings, origin: Vec3, desired_pos: Vec3, maybe_gizmos: Option<&mut Gizmos>) -> Option<Vec3> {
     let ray = Ray3d::new(origin, (desired_pos - origin).normalize());
-    let mut hits;
+    let hits;
     if let Some(gizmos) = maybe_gizmos  {
-        hits = raycast.debug_cast_ray(ray, raycast_settings, gizmos)
+        hits = raycast.debug_cast_ray(ray, raycast_settings, gizmos);
     } else {
-        hits = raycast.cast_ray(ray, raycast_settings);
+       hits = raycast.cast_ray(ray, raycast_settings);
     }
-    if let Some((hit, hit_data)) = hits.first() {
-        if hit_data.position().distance(reference_pos) < max_dist {
-            return Some(hit_data.position());
-        }
+    if let Some((_, hit_data)) = hits.first() {
+        return Some(hit_data.position());
     }
     return None;
+}
+
+fn get_best_pos(mut maybe_gizmos: Option<&mut Gizmos>, raycast: &mut Raycast, raycast_settings: &RaycastSettings, transform: &Transform, desired_pos: Vec3) -> Option<Vec3> {
+    let mut custom = Transform::from(*transform);
+    custom.translation = desired_pos;
+    custom.translation = custom.transform_point(Vec3::Y * 1.);
+    let offsets = [
+        transform.up().as_vec3() - transform.forward().as_vec3() * 0.5,
+        transform.up().as_vec3() + transform.forward().as_vec3() * 0.5,
+        transform.up().as_vec3(),
+    ];
+
+    let mut hits = Vec::new();
+
+    for offset in offsets {
+        let Some(pos) = try_ray(raycast, raycast_settings, desired_pos + offset, desired_pos, maybe_gizmos.as_deref_mut()) else { continue; };
+        if pos.distance_squared(desired_pos) < 5. {
+            hits.push(pos);
+        }
+    }
+    if hits.length() == 0 {
+        return None;
+    }
+
+    hits.sort_by(|hit_a, hit_b| hit_a.distance_squared(desired_pos).partial_cmp(&hit_b.distance_squared(desired_pos)).unwrap());
+    return Some(*hits.first().unwrap());
 }
