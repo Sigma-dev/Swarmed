@@ -103,7 +103,7 @@ fn move_creature(
             rotation = -1.
         }
         if vec != Vec3::ZERO { vec = vec.normalize(); };
-        creature.target_offset = -vec * creature.speed_mult;
+        creature.target_offset = -vec * creature.speed_mult * 1.5;
         let copy = transform.clone();
         transform.translation += ((copy.forward() * vec.z) + (copy.right() * vec.x))  * creature.speed_mult * 0.05;
         transform.rotate_local_y(rotation * 0.01);
@@ -116,7 +116,7 @@ fn handle_visual(
 ) {
     for  (creature_entity, mut transform, leg_creature) in leg_creature_query.iter_mut() {
         let target = transform.aligned_by(Vec3::Y, leg_creature.up, Vec3::X, transform.local_x());
-        transform.rotation = transform.rotation.slerp(target.rotation, 0.05);
+        transform.rotation = transform.rotation.slerp(target.rotation, 0.1);
         let (x, y, z) = transform.rotation.to_euler(EulerRot::XYZ);
         let (a, b, c) = target.rotation.to_euler(EulerRot::XYZ);
     }
@@ -197,7 +197,7 @@ fn handle_height(
         let mut delta = 0.;
         if let Some((hit, hit_data)) = hits.first() {
             if hit_data.distance() < 0.5 {
-                delta = 0.2 - hit_data.distance()
+                delta = 0.3 - hit_data.distance()
             }
         }
         transform.translation = transform.translation.lerp(transform.translation + transform.up() * delta, 0.05) ;
@@ -269,7 +269,7 @@ fn handle_legs(
            let mut desired_pos: Vec3 = leg_creature_transform.transform_point(*leg_offset + leg.step_offset) + new_diff;
            let mut target = arm.target;
 
-            if let Some(pos) = find_step(Transform::from(*leg_creature_transform), desired_pos, &mut raycast, &mut gizmos, &names_query) {
+            if let Some(pos) = find_step(Transform::from(*leg_creature_transform), desired_pos, &mut raycast, &mut gizmos, &names_query, names_query.get(*leg_entity).unwrap().as_str().to_string()) {
                 target = pos;
             }
 
@@ -309,7 +309,8 @@ fn find_step(
     desired_pos: Vec3,
     raycast: &mut Raycast,
     mut gizmos: &mut Gizmos,
-    names_query: &Query<&Name>
+    names_query: &Query<&Name>,
+    name: String,
 ) -> Option<Vec3> {
     let mut custom = Transform::from(transform);
     custom.translation = desired_pos;
@@ -331,16 +332,25 @@ fn find_step(
 
     for offset in offsets {
         let Some(pos) = try_ray(raycast, &settings, desired_pos + offset, desired_pos, Some(&mut gizmos)) else { continue; };
-        if pos.distance_squared(desired_pos) < 5. {
+        if pos.distance(desired_pos) < 2. {
             hits.push(pos);
         }
     }
     if hits.length() == 0 {
+        println!("COULDNT FIND STEP :( {name}");
         return None;
     }
 
-    hits.sort_by(|hit_a, hit_b| hit_a.distance_squared(desired_pos).partial_cmp(&hit_b.distance_squared(desired_pos)).unwrap());
+    hits.sort_by(|hit_a, hit_b| get_ray_score(*hit_a, transform.translation, desired_pos).partial_cmp(&get_ray_score(*hit_b, transform.translation, desired_pos)).unwrap());
     return Some(*hits.first().unwrap());
+}
+
+fn get_ray_score(hit: Vec3, leg_position: Vec3, desired_pos: Vec3) -> f32 {
+    let optimal_distance = 1.5;
+    let distance_desired = hit.distance(desired_pos);
+    //let distance_to_optimal = (hit.distance(leg_position) - optimal_distance).abs();
+
+    return distance_desired;
 }
 
 fn try_ray(raycast: &mut Raycast, raycast_settings: &RaycastSettings, origin: Vec3, desired_pos: Vec3, maybe_gizmos: Option<&mut Gizmos>) -> Option<Vec3> {
