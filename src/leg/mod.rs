@@ -1,4 +1,4 @@
-use bevy::{prelude::*, render::render_resource::encase::rts_array::Length};
+use bevy::{math::VectorSpace, prelude::*, render::render_resource::encase::rts_array::Length};
 use bevy_mod_raycast::prelude::*;
 use itertools::Itertools;
 
@@ -103,7 +103,7 @@ fn move_creature(
             rotation = -1.
         }
         if vec != Vec3::ZERO { vec = vec.normalize(); };
-        creature.target_offset = -vec * creature.speed_mult * 1.5;
+        creature.target_offset = (-vec * creature.speed_mult * 1.5).clamp_length(0., 1.);
         let copy = transform.clone();
         transform.translation += ((copy.forward() * vec.z) + (copy.right() * vec.x))  * creature.speed_mult * 0.05;
         transform.rotate_local_y(rotation * 0.01);
