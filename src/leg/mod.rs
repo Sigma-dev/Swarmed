@@ -64,7 +64,7 @@ pub struct LegPlugin;
 
 impl Plugin for LegPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (handle_visual, determine_side, handle_leg_creature, handle_legs, move_creature, handle_height).chain())
+        app.add_systems(Update, (handle_up, handle_visual, determine_side, handle_leg_creature, handle_legs, move_creature, handle_height, ).chain())
         .observe(setup_legs);
     }
 }
@@ -168,24 +168,6 @@ fn handle_height(
     names_query: Query<&Name>,
 ) {
     'outer: for (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
-        let mut normal_total = Vec3::ZERO;
-        let mut pos_total = Vec3::ZERO;
-        let mut i = 0;
-        for v in leg_creature.legs_info.iter().combinations(3) {
-            let legs= [v[0].0, v[1].0, v[2].0];
-            let Ok([(a, a_name), (b, b_name), (c, c_name)]) = leg_query.get_many_mut(legs) else {continue;};
-            let v1 = a.target;
-            let v2 = b.target;
-            let v3 = c.target; 
-            if (v1 == v2 || v2 == v3 || v1.is_nan() || v2.is_nan() || v3.is_nan()) {
-                continue 'outer;
-            }
-            let (plane, pos) = InfinitePlane3d::from_points(v1, v2, v3);
-            normal_total += *plane.normal;
-            pos_total += pos;
-            i += 1;
-        }
-        let normal_average = (normal_total / i as f32).normalize();
         let settings = RaycastSettings {
             visibility: RaycastVisibility::Ignore,
             filter: &|entity| is_valid_raycast_target(entity, &names_query),
@@ -201,10 +183,72 @@ fn handle_height(
             }
         }
         transform.translation = transform.translation.lerp(transform.translation + transform.up() * delta, 0.05) ;
-        if !normal_average.is_nan() {
-            leg_creature.up = normal_average;
-        }
     };     
+}
+
+fn handle_up(
+    mut raycast: Raycast,
+    mut leg_creature_query: Query<(Entity, &mut Transform, &mut LegCreature)>,
+    names_query: Query<&Name>,
+    mut gizmos: Gizmos,
+) {
+    'outer: for (creature_entity, mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
+        let settings = RaycastSettings {
+            visibility: RaycastVisibility::Ignore,
+            filter: &|entity| is_valid_raycast_target(entity, &names_query),
+            ..default()
+        };
+        let mut target_up = leg_creature.up;
+        if let Some(hit) = get_wall_hit_data(&mut raycast, &settings, *transform, &mut gizmos) {
+            target_up = hit.normal().lerp(leg_creature.up, hit.distance());
+        }
+        else if let Some(hit) = get_cliff_data(&mut raycast, &settings, *transform, &mut gizmos) {
+            target_up = hit.normal().lerp(leg_creature.up, 0.01);
+        }
+        else if let Some(ground_normal) = get_ground_normal(&mut raycast, &settings, *transform, &mut gizmos) {
+           target_up = ground_normal
+        }
+        let mut copy = transform.clone();
+        copy.rotation = Quat::from_rotation_arc(*copy.up(), target_up) * copy.rotation;
+
+        //copy.align(hit_data2.normal(), Dir3::Y, hit_data2.normal(), Dir3::Y);
+        //transform.rotation = copy.rotation;
+        transform.rotation = transform.rotation.lerp(copy.rotation, 0.02);
+        leg_creature.up = *transform.up();
+    };     
+}
+
+fn get_ground_normal(raycast: &mut Raycast, raycast_settings: &RaycastSettings, transform: Transform, mut gizmos: &mut Gizmos) -> Option<Vec3> {
+    let ray2 = Ray3d::new(transform.translation, transform.down().as_vec3());
+    let hits2 = raycast.cast_ray(ray2, raycast_settings);
+    if let Some((hit, hit_data2)) = hits2.first() {
+        if hit_data2.distance() < 1. {
+            return Some(hit_data2.normal());
+        }
+    }
+    return None;
+}
+
+fn get_wall_hit_data(raycast: &mut Raycast, raycast_settings: &RaycastSettings, transform: Transform, mut gizmos: &mut Gizmos) -> Option<IntersectionData> {
+    let ray = Ray3d::new(transform.translation, transform.forward().as_vec3());
+    let hits = raycast.cast_ray(ray, raycast_settings);
+    if let Some((_, hit_data)) = hits.first() {
+        if hit_data.distance() < 1. {
+            return Some(hit_data.clone());
+        }
+    }
+    return None
+}
+
+fn get_cliff_data(raycast: &mut Raycast, raycast_settings: &RaycastSettings, transform: Transform, mut gizmos: &mut Gizmos) -> Option<IntersectionData> {
+    let ray = Ray3d::new(transform.translation + transform.forward().as_vec3() * 1.0, transform.down().as_vec3() - transform.forward().as_vec3());
+    let hits = raycast.cast_ray(ray, raycast_settings);
+    if let Some((_, hit_data)) = hits.first() {
+        if hit_data.distance() > 0.5 {
+            return Some(hit_data.clone());
+        }
+    }
+    return None
 }
 
 fn determine_side(
@@ -331,7 +375,7 @@ fn find_step(
     };
 
     for offset in offsets {
-        let Some(pos) = try_ray(raycast, &settings, desired_pos + offset, desired_pos, Some(&mut gizmos)) else { continue; };
+        let Some(pos) = try_ray(raycast, &settings, desired_pos + offset, desired_pos, None) else { continue; };
         if pos.distance(desired_pos) < 2. {
             hits.push(pos);
         }

@@ -19,6 +19,7 @@ pub fn spawn_spider(
         },
         //Movable,
         LegCreature::new(LegSide::None, 0.2, legs_info, 0.2),
+        //LegCreature::new(LegSide::None, 0.2, Vec::new(), 0.2),
         Name::new("SpiderBody")
     ));
 }
