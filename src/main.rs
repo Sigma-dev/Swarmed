@@ -1,9 +1,10 @@
 use std::{env, f32::{consts::*, NAN}};
-use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
+use bevy::{color::palettes, gltf::GltfMesh, math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::{spawn_spider, spawn_test_arm};
+use vleue_navigator::{NavMesh, VleueNavigatorPlugin};
 use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;
@@ -19,26 +20,39 @@ struct MultiPosCamera {
     index: i32
 }
 
+#[derive(Resource)]
+struct MapLoader {
+    handle: Option<Handle<Gltf>>
+}
+
 #[derive(Component)]
 struct GroundMarker;
+
+const HANDLE_TRIMESH_OPTIMIZED: Handle<NavMesh> = Handle::weak_from_u128(0);
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, VleueNavigatorPlugin))
         .add_plugins((IKArmPlugin, LegPlugin))
         .insert_resource(AmbientLight {
             brightness: 750.0,
             ..default()
         })
+        .insert_resource(MapLoader {handle: None})
         .add_systems(Startup, (setup, ).chain())
-        .add_systems(Update, (movable, multi_pos_camera))
+        .add_systems(Update, (movable, multi_pos_camera, spawn_map))
        // .observe(modify_meshes)
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut map: ResMut<MapLoader>,
+) {
     // Create a camera
     commands.spawn((Camera3dBundle {
             transform: Transform::from_xyz(-7.0, 7., -7.0)
@@ -56,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
 
     spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
     //spawn_test_arm(&mut commands, &asset_server, &mut meshes, &mut materials);
-        
+    /* 
     commands.spawn((
         SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),
@@ -65,6 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         },
         GroundMarker,
     ));
+    */
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
@@ -73,7 +88,49 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
+    map.handle = Some(asset_server.load("map/map_slopes.glb"));
 
+
+}
+
+fn spawn_map(
+    mut commands: Commands,
+    mut map: ResMut<MapLoader>,
+    assets_gltf: Res<Assets<Gltf>>,
+    gltf_meshes: Res<Assets<GltfMesh>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut navmeshes: ResMut<Assets<NavMesh>>,
+) {
+    // if the GLTF has loaded, we can navigate its contents
+    let Some(handle) = &map.handle else { return; };
+    if let Some(gltf) = assets_gltf.get(handle) {
+        // spawn the first scene in the file
+        commands.spawn(SceneBundle {
+            scene: gltf.scenes[0].clone(),
+            visibility: Visibility::Hidden,
+            ..Default::default()
+        });
+     
+        let Some(gltf_mesh) = gltf_meshes.get(&gltf.named_meshes["Ground"]) else {return;};
+        let Some(mesh) = meshes.get(&gltf_mesh.primitives[0].mesh) else {return;};
+        let navmesh = NavMesh::from_bevy_mesh(mesh);
+
+        let mut material: StandardMaterial = Color::Srgba(palettes::css::ANTIQUE_WHITE).into();
+        material.unlit = true;
+
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(navmesh.to_wireframe_mesh()),
+                material: materials.add(material),
+                transform: Transform::from_xyz(0.0, 0.2, 0.0),
+                ..Default::default()
+            },
+            Name::new("Ground")
+        ));
+        navmeshes.insert(&HANDLE_TRIMESH_OPTIMIZED, navmesh);
+        map.handle = None;
+    }
 }
 
 fn movable(

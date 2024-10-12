@@ -343,7 +343,7 @@ fn handle_legs(
 
 fn is_valid_raycast_target(entity: Entity, names_query: &Query<&Name>) -> bool {
     match names_query.get(entity) {
-        Ok(name) => { name.as_str().contains("Cube") },
+        Ok(name) => { name.as_str().contains("Ground") },
         Err(_) => false,
     }
 }
