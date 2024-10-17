@@ -9,3 +9,34 @@ Plan A:
 
 Now to follow the path, get the world position of that point on the current triangle we stored in step 4 and walk towards that.
 We might need to add a buffer zone around the sides of meshes like navmesh do, that would reqire changing steps 3-5 by updating what counts as being "blocked" as crossing that buffer zone too.
+
+Plan A2:
+
+PRECOMPUTATION:
+
+Given:
+M the mesh that represents the walkable world space.
+
+Create a Vector V that stores every Triangle in the mesh as this data structure:
+
+center_position: Vec3
+neighbors_indices: Vec<i32>
+
+
+
+Finding the triangles:
+
+Given:
+A the starting position as a 3D position that intersects one of the mesh's triangles
+B the target position as a 3D position that intersects one of the mesh's triangles
+
+0.Initialize a "visited" vector the size of the triangles list with all negative booleans 
+1.Find the triangles that contain A and B
+    - Converting them to the mesh's coordinate system, then looping through every triangle until they find one that includes that position.
+2.Add starting triangle to list of candidates:
+3.Take the closest triangle from the sorted list of candidates.
+4.If any of the neighboring triangles is the one with B in END;
+5.Add the neighboring triangles that are marked as false in the visitation vector to a sorted list of all candidates, sorted by center_distance to B;
+6.Set the booleans for those triangles in the visitation vector to true
+7.go back to 3
+
