@@ -1,0 +1,24 @@
+Plan A:
+
+Partie logique authoritative est divisée sur le joueur:
+struct WeaponInventory: Tiens en compte des armes disponibles, leurs munitions (chargées et en stock) et leur charactéristiques (cadence, taille du chargeur, temps de rechargement, nom pour les applications graphiques etc)..
+Il prends aussi en compte les micros variables résponsable de la cadence de tir (cd entre 2 tirs en stockant le temps du dernier tir) individuellement pour chaque arme.
+Et les changements d'arme et l'arme équippée.
+Ses systemes écoutent des évenements comme:
+
+
+Composant WeaponSystem (possède un weaponInventory):
+Cette partie logique fait des appels fonctions à WeaponInventory comme TryReload TryFire et relaie les résultats au reste des entitées par des événements:
+FailedReload, SuccesfullReload etc...
+
+
+La partie visuelle est un composant sur la camera qui écoute les événements (equip weapon etc), et match le nom de l'arme à une liste interne (initialisée avec le composant) qui match nom à un fichier gltf. glock -> weapons/glock/glock.gtlf.
+
+Si par exemple un évenement EquipWeapon(0) est reçu, le système query l'inventaire, chope l'identifiant de l'arme (ex: "glock") et charge le modèle gltf.
+Ensuite il écoute les évenements type Tir, Reload et joue l'animation appropriée
+
+Pour le temps de swap:
+Stocker la durée sur les armes, mais gérer le début/fin avec le weaponsystem (qui intercepte le try_fire/try_reload quand il est tj en train de swap)
+
+Pour les updates type changement du nombre de munitions:
+weaponsystem check chaque frame si le nombre a changé en stockant la valeur de la dernière frame, si changement, évenement.

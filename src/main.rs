@@ -9,6 +9,7 @@ use fps_movement::{CharacterControllerBundle, CharacterControllerPlugin};
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::spawn_spider;
+use weapon_system::WeaponSystemPlugin;
 use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;
@@ -17,6 +18,7 @@ mod spider;
 mod fps_camera;
 mod fps_movement;
 mod character_controller;
+mod weapon_system;
 
 #[derive(Component)]
 struct Movable {
@@ -33,7 +35,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin))
+        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin, WeaponSystemPlugin))
         .add_plugins((LogDiagnosticsPlugin::default(), PhysicsPlugins::default(), CharacterControllerPlugin, character_controller::plugin))
         .insert_resource(AmbientLight {
             brightness: 750.0,

@@ -20,6 +20,8 @@ use input::PlayerActions;
 use leafwing_input_manager::InputManagerBundle;
 use movement::Gravity;
 
+use crate::weapon_system::{weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem};
+
 mod camera_rig;
 mod input;
 mod kinematic_controller;
@@ -119,5 +121,23 @@ pub fn spawn_test_character(
         network_identity,
         LockedAxes::ROTATION_LOCKED,
         Name::new("CurrentPlayer"),
+        WeaponSystem {
+            inventory: WeaponInventory::new(vec![
+                Weapon::new(
+                    WeaponCharacteristics { 
+                        max_loaded: 12,
+                        max_ammo: 250,
+                        fire_cd: 0.1,
+                        reload_time: 2.,
+                        equip_time: 0.2,
+                        unequip_time: 0.1,
+                        reloading_empties_mag: false
+                    },
+                    50, 
+                    true,
+                    "glock" 
+                )   
+            ]),
+        }
     ));
 }
