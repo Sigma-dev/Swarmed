@@ -1,5 +1,7 @@
 use std::cmp::min;
 
+use super::weapon_inventory::{ReloadType, ShootType};
+
 pub struct Weapon {
     pub(crate) characteristics: WeaponCharacteristics,
     pub(crate) ammo_loaded: u32,
@@ -32,15 +34,19 @@ impl Weapon {
         }
     }
 
-    pub fn try_fire(&mut self, time: f32) -> Result<(), FireError> {
+    pub fn try_fire(&mut self, time: f32) -> Result<ShootType, FireError> {
         self.can_fire(time)?;
         self.last_fire_time = Some(time);
         self.ammo_loaded -= 1;
-        Ok(())
+        if (self.ammo_loaded == 0) {
+            return Ok(ShootType::Last);
+        }
+        Ok(ShootType::Normal)
     }
 
-    pub fn try_reload(&mut self, time: f32) -> Result<(), ReloadError> {
+    pub fn try_reload(&mut self, time: f32) -> Result<ReloadType, ReloadError> {
         self.can_reload(time)?;
+        let empty_reload = self.is_empty();
         if self.characteristics.reloading_empties_mag {
             self.ammo_loaded = self.ammo_left;
             self.ammo_left -= self.ammo_loaded;
@@ -53,7 +59,10 @@ impl Weapon {
             self.ammo_left -= diff;
         }
         self.last_reload_time = Some(time);
-        Ok(())
+        if empty_reload {
+            return Ok(ReloadType::Empty)
+        }
+        Ok(ReloadType::Normal)
     }
 
     pub fn can_fire(&self, time: f32) -> Result<(), FireError> {

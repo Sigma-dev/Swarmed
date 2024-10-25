@@ -94,6 +94,15 @@ fn setup(
     mut commands: Commands, 
     asset_server: Res<AssetServer>,
 ) {
+    /* 
+    commands.spawn(
+        SceneBundle {
+                scene: asset_server.load("weapons/glock/glock.glb#Scene0"),
+                transform: Transform::from_xyz(0., 5., 0.),
+                ..default()
+                }
+            );
+            */
     // Create a camera
      /* 
     commands.spawn(Camera3dBundle {

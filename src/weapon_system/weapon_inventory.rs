@@ -34,13 +34,13 @@ impl WeaponInventory {
         Ok(())
     }
 
-    pub fn try_fire(&mut self, time: f32) -> Result<(), weapon::FireError> {
+    pub fn try_fire(&mut self, time: f32) -> Result<ShootType, weapon::FireError> {
         if self.is_swapping(time) { return Err(weapon::FireError::SwappingWeapons)};
         let Some(weapon) = self.get_equipped_weapon_mut() else { return Err(weapon::FireError::WeaponUnavailable)};
         weapon.try_fire(time)
     }
 
-    pub fn try_reload(&mut self, time: f32) -> Result<(), weapon::ReloadError> {
+    pub fn try_reload(&mut self, time: f32) -> Result<ReloadType, weapon::ReloadError> {
         if self.is_swapping(time) { return Err(weapon::ReloadError::SwappingWeapons)};
         let Some(weapon) = self.get_equipped_weapon_mut() else { return Err(weapon::ReloadError::WeaponUnavailable)};
         weapon.try_reload(time)
@@ -83,4 +83,16 @@ pub enum SwapError {
     SameWeapon,
     AlreadySwapping,
     WeaponUnavailable,
+}
+
+#[derive(Debug)]
+pub enum ShootType {
+    Normal,
+    Last
+}
+
+#[derive(Debug)]
+pub enum ReloadType {
+    Normal,
+    Empty,
 }

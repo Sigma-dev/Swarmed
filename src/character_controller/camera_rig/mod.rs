@@ -56,6 +56,5 @@ pub fn create_camera(mut commands: Commands) {
         WeaponVisualsManagerGltf {
             match_list
         },
-        InheritedVisibility::VISIBLE
     ));
 }
