@@ -36,12 +36,10 @@ impl Weapon {
         self.can_fire(time)?;
         self.last_fire_time = Some(time);
         self.ammo_loaded -= 1;
-        println!("Fired");
         Ok(())
     }
 
     pub fn try_reload(&mut self, time: f32) -> Result<(), ReloadError> {
-        println!("Try reload");
         self.can_reload(time)?;
         if self.characteristics.reloading_empties_mag {
             self.ammo_loaded = self.ammo_left;
@@ -55,7 +53,6 @@ impl Weapon {
             self.ammo_left -= diff;
         }
         self.last_reload_time = Some(time);
-        println!("Reloaded");
         Ok(())
     }
 

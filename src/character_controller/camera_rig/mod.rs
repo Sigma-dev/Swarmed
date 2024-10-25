@@ -1,5 +1,7 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashMap};
 use bevy_steam_p2p::{NetworkIdentity, SteamP2PClient};
+
+use crate::weapon_system::gltf::{WeaponVisualsGltf, WeaponVisualsManagerGltf};
 
 use super::CharacterControllerSet;
 
@@ -24,8 +26,8 @@ pub fn track_entity(
     client: Res<SteamP2PClient>
 ) {
     // There should only ever be one tracked entity and one rigged camera.
-    for ((tracked_entity, tracked_transform, network_identity)) in query.iter_mut() {
-        if (network_identity.owner_id != client.id) { continue; };
+    for (tracked_entity, tracked_transform, network_identity) in query.iter_mut() {
+        if network_identity.owner_id != client.id { continue; };
         if let Ok(mut camera_transform) = camera_query.get_single_mut() {
             camera_transform.translation = tracked_entity.0 + tracked_transform.translation;
         }
@@ -33,17 +35,28 @@ pub fn track_entity(
 }
 
 pub fn create_camera(mut commands: Commands) {
+    let mut match_list = HashMap::new();
+    //match_list.insert("glock".to_string(), "weapons/glock/glock.glb#Scene0".to_string());
+    match_list.insert("glock".to_string(), "weapons/glock/Fox.glb".to_string());
     commands.spawn((
         RiggedCamera,
         Camera3dBundle {
             // Adjust our rotation so we're looking backwards on spawn
             transform: Transform::from_xyz(0.0, 0.0, 0.0)
-                .looking_at(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 1.0, 0.0)),
+                .looking_at(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 1.0, 0.0)).with_scale(Vec3::ONE * 15.),
             camera: Camera {
                 clear_color: ClearColorConfig::Custom(Color::linear_rgb(0.384, 0.71, 0.949)),
                 ..Default::default()
             },
+            projection: Projection::Perspective(PerspectiveProjection {
+                near: 0.01,
+                ..default()
+            }),
             ..Default::default()
         },
+        WeaponVisualsManagerGltf {
+            match_list
+        },
+        InheritedVisibility::VISIBLE
     ));
 }
