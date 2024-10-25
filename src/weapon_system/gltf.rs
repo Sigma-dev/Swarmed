@@ -25,25 +25,47 @@ pub struct Animations {
     graph: Handle<AnimationGraph>,
 }
 
+pub fn setup_anims(
+    mut commands: Commands,
+    animations: Res<Animations>,
+    // The "Added<AnimationPlayer>" filter means this system only gets run the first time an AnimationPlayer component is added
+    // to a given entity. That ensures that we'll also only have one "AnimationTransitions" component, which we create here.
+    // We spawn it and immediately play animations.animations[0] which is your equipped animation
+    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>
+) {
+    for (entity, mut player) in &mut players {
+        let mut transitions = AnimationTransitions::new();
+        transitions.play(&mut player, animations.animations[0], Duration::ZERO);
+        commands.
+            entity(entity)
+            .insert(animations.graph.clone())
+            .insert(transitions);
+    }
+}
+
 pub fn play_anim(
     mut commands: &mut Commands,
-    mut players: &mut Query<(Entity, &mut AnimationPlayer)>,
+    // We now include AnimationTransitions in the query.
+    mut players: &mut Query<(Entity, &mut AnimationPlayer, &mut AnimationTransitions)>,
     mut weapon_visual_query: &mut Query<(&WeaponVisualsGltf, &mut Visibility)>,
     animations: &Res<Animations>,
     anim_index: usize
 ) {
-    for (entity, mut player) in players {
+    for (entity, mut player, mut transitions) in players {
         for (visual, mut visibility) in weapon_visual_query.iter_mut() {
             *visibility = Visibility::Visible;
         }
-        let mut transitions = AnimationTransitions::new();
-        transitions
-            .play(&mut player, animations.animations[anim_index], Duration::ZERO);
-        //2 = equip
-        commands
-            .entity(entity)
-            .insert(animations.graph.clone())
-            .insert(transitions);
+
+        // We use transitions to play. Don't spawn it every time.
+        transitions.play(&mut player, animations.animations[anim_index], Duration::ZERO);
+        // let mut transitions = AnimationTransitions::new();
+        // transitions
+        //     .play(&mut player, animations.animations[anim_index], Duration::ZERO);
+        // //2 = equip
+        // commands
+        //     .entity(entity)
+        //     .insert(animations.graph.clone())
+        //     .insert(transitions);
     }
 }
 
@@ -53,7 +75,8 @@ pub(crate) fn handle_weapon_events(
     weapons_visuals_manager_gltf_query: Query<(Entity, Option<&Children>, &WeaponVisualsManagerGltf)>,
     mut weapons_visuals_gltf_query: Query<(&WeaponVisualsGltf, &mut Visibility)>,
     weapon_systems_query: Query<&WeaponSystem>,
-    mut players: Query<(Entity, &mut AnimationPlayer)>,
+    // This query is modified to include the AnimationTransitions component
+    mut players: Query<(Entity, &mut AnimationPlayer, &mut AnimationTransitions)>,
     mut weapon_events_reader: EventReader<WeaponEvent>,
     animations: Res<Animations>,
 ) {

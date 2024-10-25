@@ -1,5 +1,5 @@
 use bevy::{animation::animate_targets, prelude::*};
-use gltf::{handle_weapon_events, pre_spawn};
+use gltf::{handle_weapon_events, pre_spawn, setup_anims};
 use weapon_inventory::{ReloadType, ShootType, WeaponInventory};
 
 pub mod weapon;
@@ -12,7 +12,11 @@ impl Plugin for WeaponSystemPlugin {
     fn build(&self, app: &mut App) {
         app
         .add_systems(PostStartup, pre_spawn)
-        .add_systems(Update, (handle_inputs, handle_weapon_events, handle_weapon_events.before(animate_targets)))
+        .add_systems(Update, (
+            handle_inputs,
+            setup_anims.before(handle_weapon_events),
+            handle_weapon_events.before(animate_targets))
+        )
         .add_event::<WeaponEvent>();
     }
 }
