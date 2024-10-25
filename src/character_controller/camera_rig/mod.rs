@@ -36,8 +36,7 @@ pub fn track_entity(
 
 pub fn create_camera(mut commands: Commands) {
     let mut match_list = HashMap::new();
-    //match_list.insert("glock".to_string(), "weapons/glock/glock.glb#Scene0".to_string());
-    match_list.insert("glock".to_string(), "weapons/glock/Fox.glb".to_string());
+    match_list.insert("glock".to_string(), "weapons/glock/glock.glb".to_string());
     commands.spawn((
         RiggedCamera,
         Camera3dBundle {
