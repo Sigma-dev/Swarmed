@@ -1,0 +1,11 @@
+Plan A:
+Create a component called AnimatedGltf {
+
+    method from_gltf(gltf_path)
+    method is_loaded() //maybe an event if necessary
+}
+
+Ce composant load le gltf entier et stock l'handle
+puis une fois load il spawn la scène 0 et en stocke l'entity
+Puis utilise la méthode named_animations sur le gltf pour les soutirer et crée un dictionnaire avec les noms des animations et les animations
+

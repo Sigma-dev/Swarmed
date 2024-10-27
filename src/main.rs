@@ -1,4 +1,5 @@
 use std::f32::{consts::*, NAN};
+use animated_gltf::{AnimatedGltf, AnimatedGltfPlugin};
 use avian3d::{prelude::{Collider, ColliderConstructor, ColliderConstructorHierarchy, RigidBody}, PhysicsPlugins};
 use bevy::{diagnostic::LogDiagnosticsPlugin, math::{NormedVectorSpace, VectorSpace}, prelude::*, render::{mesh::{self, skinning::SkinnedMesh}, settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
@@ -19,6 +20,7 @@ mod fps_camera;
 mod fps_movement;
 mod character_controller;
 mod weapon_system;
+mod animated_gltf;
 
 #[derive(Component)]
 struct Movable {
@@ -35,14 +37,14 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin, WeaponSystemPlugin))
+        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin, WeaponSystemPlugin, AnimatedGltfPlugin))
         .add_plugins((LogDiagnosticsPlugin::default(), PhysicsPlugins::default(), CharacterControllerPlugin, character_controller::plugin))
         .insert_resource(AmbientLight {
             brightness: 750.0,
             ..default()
         })
         .add_systems(Startup, (setup, ).chain())
-        .add_systems(Update, (movable, steam_system, handle_unhandled_instantiations))
+        .add_systems(Update, (movable, steam_system, handle_unhandled_instantiations, update))
         .run();
 }
 
@@ -90,10 +92,35 @@ fn handle_unhandled_instantiations(
     }
 }
 
+fn update(
+    mut animated_query: Query<&mut AnimatedGltf>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    for mut animated in animated_query.iter_mut() {
+        if keys.just_pressed(KeyCode::KeyH) {
+            animated.play("Equip");
+        }
+    }
+}
+
 fn setup(
     mut commands: Commands, 
     asset_server: Res<AssetServer>,
 ) {
+    commands.spawn((
+        SpatialBundle {
+            transform: Transform::from_translation(Vec3::new(0., 1.1, 0.)), 
+            ..default()
+        },
+        AnimatedGltf::new("weapons/glock/glock.glb"),
+    ));
+    commands.spawn((
+        SpatialBundle {
+            transform: Transform::from_translation(Vec3::new(0., 1., 0.)), 
+            ..default()
+        },
+        AnimatedGltf::new("weapons/glock/glock.glb"),
+    ));
     /* 
     commands.spawn(
         SceneBundle {

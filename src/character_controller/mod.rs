@@ -127,7 +127,7 @@ pub fn spawn_test_character(
                     WeaponCharacteristics { 
                         max_loaded: 12,
                         max_ammo: 250,
-                        fire_cd: 0.1,
+                        fire_cd: 0.2,
                         reload_time: 2.,
                         equip_time: 0.2,
                         unequip_time: 0.1,

@@ -9,8 +9,6 @@ use super::{WeaponEvent, WeaponSystem};
 #[derive(Component, Debug, Clone)]
 pub struct WeaponVisualsGltf {
     identifier: String,
-    graph: AnimationGraph,
-    animations: Vec<AnimationNodeIndex>
 }
 
 #[derive(Component)]
@@ -35,7 +33,7 @@ pub fn setup_anims(
 ) {
     for (entity, mut player) in &mut players {
         let mut transitions = AnimationTransitions::new();
-        transitions.play(&mut player, animations.animations[0], Duration::ZERO);
+      //  transitions.play(&mut player, animations.animations[0], Duration::ZERO);
         commands.
             entity(entity)
             .insert(animations.graph.clone())
@@ -55,17 +53,7 @@ pub fn play_anim(
         for (visual, mut visibility) in weapon_visual_query.iter_mut() {
             *visibility = Visibility::Visible;
         }
-
-        // We use transitions to play. Don't spawn it every time.
         transitions.play(&mut player, animations.animations[anim_index], Duration::ZERO);
-        // let mut transitions = AnimationTransitions::new();
-        // transitions
-        //     .play(&mut player, animations.animations[anim_index], Duration::ZERO);
-        // //2 = equip
-        // commands
-        //     .entity(entity)
-        //     .insert(animations.graph.clone())
-        //     .insert(transitions);
     }
 }
 
@@ -75,7 +63,6 @@ pub(crate) fn handle_weapon_events(
     weapons_visuals_manager_gltf_query: Query<(Entity, Option<&Children>, &WeaponVisualsManagerGltf)>,
     mut weapons_visuals_gltf_query: Query<(&WeaponVisualsGltf, &mut Visibility)>,
     weapon_systems_query: Query<&WeaponSystem>,
-    // This query is modified to include the AnimationTransitions component
     mut players: Query<(Entity, &mut AnimationPlayer, &mut AnimationTransitions)>,
     mut weapon_events_reader: EventReader<WeaponEvent>,
     animations: Res<Animations>,
@@ -149,79 +136,14 @@ pub fn pre_spawn(
                     SceneBundle {
                         scene: assets_server.load(GltfAssetLabel::Scene(0).from_asset(gltf_path.clone())),
                         transform: Transform::from_xyz(0.015, -0.015, -0.05).with_scale(Vec3::splat(0.2)),
-                     //transform: Transform::from_xyz(0., -0.015 * 5., -0.2).with_rotation(Quat::from_rotation_y(PI)),
                         visibility: Visibility::Hidden,
                         ..default()
                     },
                     WeaponVisualsGltf {
                         identifier: identifier.to_string(),
-                        //animations: graph.add_clips((0..2).map(|i| {assets_server.load(GltfAssetLabel::Animation(i).from_asset(gltf_path))}), 1.0,graph.root).collect(),
-                        //animations: AnimationGraph::from_clip(assets_server.load(GltfAssetLabel::Animation(0).from_asset(gltf_path.clone())))
-                        graph: graph.to_owned(),
-                        animations: graph
-                        .add_clips(
-                            [
-                                GltfAssetLabel::Animation(2).from_asset(gltf_path.clone()),
-                                GltfAssetLabel::Animation(1).from_asset(gltf_path.clone()),
-                                GltfAssetLabel::Animation(0).from_asset(gltf_path.clone()),
-                            ]
-                            .into_iter()
-                            .map(|path| assets_server.load(path)),
-                            1.0,
-                            graph.root,
-                        )
-                        .collect()
                     }
                 ));
             }
         });
     }
 }
-
-/*
-pub(crate) fn handle_weapon_spawn(
-    mut commands: Commands,
-    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
-    mut weapon_visual_query: Query<&WeaponVisualsGltf>,
-    animations: Res<Animations>,
-) {
-    for (entity, mut player) in &mut players {
-        let mut transitions = AnimationTransitions::new();
-
-        // Make sure to start the animation via the `AnimationTransitions`
-        // component. The `AnimationTransitions` component wants to manage all
-        // the animations and will get confused if the animations are started
-        // directly via the `AnimationPlayer`.
-        transitions
-            .play(&mut player, animations.animations[0], Duration::ZERO)
-            .repeat();
-
-        commands
-            .entity(entity)
-            .insert(animations.graph.clone())
-            .insert(transitions);
-    }
-    /*
-    for (entity, mut player) in &mut players {
-        let Ok(visual) = weapon_visual_query.get_single() else {continue;};
-        println!("Play");
-        println!("{:?}", entity);
-        println!("{:?}", player.is_playing_animation(visual.animations[0]));
-        //let anim = player.play(visual.animations[0]);
-       //println!("{:?}", anim.is_paused());
-        let mut transitions = AnimationTransitions::new();
-
-        // Make sure to start the animation via the `AnimationTransitions`
-        // component. The `AnimationTransitions` component wants to manage all
-        // the animations and will get confused if the animations are started
-        // directly via the `AnimationPlayer`.
-        transitions
-            .play(&mut player, visual.animations[0], Duration::ZERO)
-            .repeat();
-        commands
-        .entity(entity)
-        .insert(visual.graph.clone())
-        .insert(transitions);
-    } */
-}
- */
