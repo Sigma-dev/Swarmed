@@ -58,43 +58,43 @@ fn handle_loaded(
     assets_gltf: Res<Assets<Gltf>>,
     assets_clips: Res<Assets<AnimationClip>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
+    asset_server: Res<AssetServer>
 ) {
-    for event in gltf_events.read() {
-        if let AssetEvent::Added { id } = event {
-            if let Some((animated_entity, mut animated)) = animated_query.iter_mut().find(|a| a.1.gltf.id() == *id) {
-                let Some(gltf) = assets_gltf.get(*id) else { continue; };
-                commands.entity(animated_entity).with_children(|p| {
-                    p.spawn(SceneBundle {
-                        scene: gltf.scenes[0].clone(),
-                        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-                        ..Default::default()
-                    });
-                });
-                let mut graph = AnimationGraph::new();
-                let animations: Vec<AnimationNodeIndex> = graph.add_clips(
-                    gltf.named_animations.iter().map(|(_, handle)| handle.clone()),
-                    1.0,
-                    graph.root,
-                )
-                .collect();
-                let cloned_animations = gltf.named_animations.clone();
-                for (i, (handle)) in gltf.animations.clone().into_iter().enumerate() {
-                    let mut maybe_name = None;
-                    for (name, clip) in gltf.named_animations.clone() {
-                        if clip.id() == handle.id() {
-                            maybe_name = Some(name);
-                        }
-                    }
-                    maybe_name = gltf.named_animations.clone().iter().find(|n| n.1.id() == handle.id()).map(|a| a.0).cloned();
-                    let Some(name) = maybe_name else { continue; };
-                    animated.animations.insert(name.to_string(), animations[i]);
+    for (animated_entity, mut animated) in animated_query.iter_mut() {
+        if animated.loaded { continue; };
+        if !asset_server.is_loaded_with_dependencies(animated.gltf.id()) { continue; };
+        animated.loaded = true;
+        let Some(gltf) = assets_gltf.get(animated.gltf.id()) else { continue; };
+        commands.entity(animated_entity).with_children(|p| {
+            p.spawn(SceneBundle {
+                scene: gltf.scenes[0].clone(),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+                ..Default::default()
+            });
+        });
+        let mut graph = AnimationGraph::new();
+        let animations: Vec<AnimationNodeIndex> = graph.add_clips(
+            gltf.named_animations.iter().map(|(_, handle)| handle.clone()),
+            1.0,
+            graph.root,
+        )
+        .collect();
+        let cloned_animations = gltf.named_animations.clone();
+        for (i, (handle)) in gltf.animations.clone().into_iter().enumerate() {
+            let mut maybe_name = None;
+            for (name, clip) in gltf.named_animations.clone() {
+                if clip.id() == handle.id() {
+                    maybe_name = Some(name);
                 }
-                commands.
-                entity(animated_entity)
-                .insert(graphs.add(graph))
-                .insert(AnimationTransitions::new());
             }
+            maybe_name = gltf.named_animations.clone().iter().find(|n| n.1.id() == handle.id()).map(|a| a.0).cloned();
+            let Some(name) = maybe_name else { continue; };
+            animated.animations.insert(name.to_string(), animations[i]);
         }
+        commands.
+        entity(animated_entity)
+        .insert(graphs.add(graph))
+        .insert(AnimationTransitions::new());
     }
 }
 
