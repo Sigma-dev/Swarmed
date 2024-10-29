@@ -60,7 +60,7 @@ fn modify_meshes(
 fn steam_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut evs_lobby: EventReader<LobbyJoined>,
-    mut client: ResMut<crate::client::SteamP2PClient>,
+    mut client: ResMut<SteamP2PClient>,
 ) {
     if keys.just_pressed(KeyCode::KeyC) {
         client.create_lobby(8);

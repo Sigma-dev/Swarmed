@@ -1,7 +1,5 @@
+use bevy::{prelude::*, utils::hashbrown::HashMap};
 use std::time::Duration;
-
-use bevy::{prelude::*, utils::{hashbrown::HashMap}};
-use itertools::Itertools;
 
 pub struct AnimatedGltfPlugin;
 
@@ -53,10 +51,8 @@ fn handle_new(
 
 fn handle_loaded(
     mut commands: Commands,
-    mut gltf_events: EventReader<AssetEvent<Gltf>>,
     mut animated_query: Query<(Entity, &mut AnimatedGltf)>,
     assets_gltf: Res<Assets<Gltf>>,
-    assets_clips: Res<Assets<AnimationClip>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
     asset_server: Res<AssetServer>
 ) {
@@ -66,62 +62,41 @@ fn handle_loaded(
         animated.loaded = true;
         let Some(gltf) = assets_gltf.get(animated.gltf.id()) else { continue; };
         commands.entity(animated_entity).with_children(|p| {
-            p.spawn((SceneBundle {
+            p.spawn(SceneBundle {
                 scene: gltf.scenes[0].clone(),
                 transform: Transform::from_xyz(0.0, 0.0, 0.0),
                 ..Default::default()
-            }, Name::new("ModelGlock")));
+            });
         });
         let mut graph = AnimationGraph::new();
-       /*  let animations: Vec<AnimationNodeIndex> = graph.add_clips(
-            gltf.named_animations.iter().map(|(_, handle)| handle.clone()),
-            1.0,
-            graph.root,
-        )
-        .collect();*/
-        let cloned_animations = gltf.named_animations.clone();
-        for (i, (handle)) in gltf.animations.clone().into_iter().enumerate() {
-           // let mut maybe_name = None;
+        for handle in &gltf.animations {
             for (name, clip) in gltf.named_animations.clone() {
                 if clip.id() == handle.id() {
-                    println!("{}", name);
-                   // maybe_name = Some(name);
                     animated.animations.insert(name.to_string(),graph.add_clip(clip, 1.0, graph.root));
                 }
             }
-            //maybe_name = gltf.named_animations.clone().iter().find(|n| n.1.id() == handle.id()).map(|a| a.0).cloned();
-           // let Some(name) = maybe_name else { continue; };
-            //animated.animations.insert(name.to_string(), animations[i]);
         }
         animated.graph = graphs.add(graph).clone();
-/*         commands.
-        entity(animated_entity)
-        .insert()
-        .insert(AnimationTransitions::new());
- */    }
+    }
 }
 
 pub fn handle_loaded_anims(
     mut commands: Commands,
-    mut animated_query: Query<(Entity, &mut AnimatedGltf)>,
-    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
-    parents: Query<&Parent>,
-    names: Query<&Name>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    animated_query: Query<(Entity, &AnimatedGltf)>,
+    players: Query<Entity, Added<AnimationPlayer>>,
+    children_query: Query<&Children>,
 ) {
-    for (entity, mut player) in &mut players {
-        let Ok(fp) = parents.get(entity) else { continue; };
-        let Ok(sp) = parents.get(fp.get()) else { continue; };
-        let Ok(tp) = parents.get(sp.get()) else { continue; };
-        let Ok((e, animated)) = animated_query.get(tp.get()) else { continue; };
-        commands.entity(entity).insert(animated.graph.clone()).insert(AnimationTransitions::new());
-        
+    for (animated_entity, animated) in animated_query.iter() {
+        for child in children_query.iter_descendants(animated_entity) {
+            if let Ok(player) = players.get(child) {
+                commands.entity(player).insert(animated.graph.clone()).insert(AnimationTransitions::new());
+            }
+        }
     }
 }
 
 fn handle_new_anim(
-    commands: Commands,
-    mut child_query: Query<&Children>,
+    child_query: Query<&Children>,
     mut animated_query: Query<(Entity, &mut AnimatedGltf, &mut Visibility), Changed<AnimatedGltf>>,
     mut players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>
 ) { 
