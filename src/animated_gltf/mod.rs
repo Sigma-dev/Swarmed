@@ -8,7 +8,7 @@ pub struct AnimatedGltfPlugin;
 impl Plugin for AnimatedGltfPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_systems(Update, (handle_new, handle_loaded, handle_new_anim));
+        .add_systems(Update, (handle_new, handle_loaded,handle_loaded_anims, handle_new_anim));
     }
 }
 
@@ -66,52 +66,72 @@ fn handle_loaded(
         animated.loaded = true;
         let Some(gltf) = assets_gltf.get(animated.gltf.id()) else { continue; };
         commands.entity(animated_entity).with_children(|p| {
-            p.spawn(SceneBundle {
+            p.spawn((SceneBundle {
                 scene: gltf.scenes[0].clone(),
                 transform: Transform::from_xyz(0.0, 0.0, 0.0),
                 ..Default::default()
-            });
+            }, Name::new("ModelGlock")));
         });
         let mut graph = AnimationGraph::new();
-        let animations: Vec<AnimationNodeIndex> = graph.add_clips(
+       /*  let animations: Vec<AnimationNodeIndex> = graph.add_clips(
             gltf.named_animations.iter().map(|(_, handle)| handle.clone()),
             1.0,
             graph.root,
         )
-        .collect();
+        .collect();*/
         let cloned_animations = gltf.named_animations.clone();
         for (i, (handle)) in gltf.animations.clone().into_iter().enumerate() {
-            let mut maybe_name = None;
+           // let mut maybe_name = None;
             for (name, clip) in gltf.named_animations.clone() {
                 if clip.id() == handle.id() {
-                    maybe_name = Some(name);
+                    println!("{}", name);
+                   // maybe_name = Some(name);
+                    animated.animations.insert(name.to_string(),graph.add_clip(clip, 1.0, graph.root));
                 }
             }
-            maybe_name = gltf.named_animations.clone().iter().find(|n| n.1.id() == handle.id()).map(|a| a.0).cloned();
-            let Some(name) = maybe_name else { continue; };
-            animated.animations.insert(name.to_string(), animations[i]);
+            //maybe_name = gltf.named_animations.clone().iter().find(|n| n.1.id() == handle.id()).map(|a| a.0).cloned();
+           // let Some(name) = maybe_name else { continue; };
+            //animated.animations.insert(name.to_string(), animations[i]);
         }
-        commands.
+        animated.graph = graphs.add(graph).clone();
+/*         commands.
         entity(animated_entity)
-        .insert(graphs.add(graph))
+        .insert()
         .insert(AnimationTransitions::new());
+ */    }
+}
+
+pub fn handle_loaded_anims(
+    mut commands: Commands,
+    mut animated_query: Query<(Entity, &mut AnimatedGltf)>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+    parents: Query<&Parent>,
+    names: Query<&Name>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+) {
+    for (entity, mut player) in &mut players {
+        let Ok(fp) = parents.get(entity) else { continue; };
+        let Ok(sp) = parents.get(fp.get()) else { continue; };
+        let Ok(tp) = parents.get(sp.get()) else { continue; };
+        let Ok((e, animated)) = animated_query.get(tp.get()) else { continue; };
+        commands.entity(entity).insert(animated.graph.clone()).insert(AnimationTransitions::new());
+        
     }
 }
 
 fn handle_new_anim(
     commands: Commands,
     mut child_query: Query<&Children>,
-    mut animated_query: Query<(Entity, &mut AnimatedGltf), Changed<AnimatedGltf>>,
-    mut players: Query<&mut AnimationPlayer>
+    mut animated_query: Query<(Entity, &mut AnimatedGltf, &mut Visibility), Changed<AnimatedGltf>>,
+    mut players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>
 ) { 
-    for (animated_entity, mut animated) in animated_query.iter_mut() {
+    for (animated_entity, mut animated, mut visibility) in animated_query.iter_mut() {
         let Some(animation_name) = animated.currently_playing.clone() else { continue; };
         if !animated.updated { continue; }
-        println!("in");
+        *visibility = Visibility::Visible;
         for child in child_query.iter_descendants(animated_entity) {
-            let Ok(mut player) = players.get_mut(child) else { continue; };
-            println!("Play");
-            player.start(animated.animations[&animation_name]);
+            let Ok((mut player, mut transition)) = players.get_mut(child) else { continue; };
+            transition.play(&mut player, animated.animations[&animation_name], Duration::ZERO);
         }
         animated.updated = false;
     }

@@ -113,6 +113,7 @@ fn setup(
             ..default()
         },
         AnimatedGltf::new("weapons/glock/glock.glb"),
+        Name::new("Glock")
     ));
     commands.spawn((
         SpatialBundle {
