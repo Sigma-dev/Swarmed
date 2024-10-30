@@ -1,20 +1,19 @@
 use bevy::{animation::animate_targets, prelude::*};
-use gltf::{handle_weapon_events, pre_spawn};
+use visuals::gltf::{WeaponVisualsGltf, WeaponsGltfPlugin};
 use weapon_inventory::{ReloadType, ShootType, WeaponInventory};
 
 pub mod weapon;
 pub mod weapon_inventory;
-pub mod gltf;
+pub mod visuals;
 
 pub struct WeaponSystemPlugin;
 
 impl Plugin for WeaponSystemPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_systems(Update, (
-            handle_inputs,
-            pre_spawn,
-            handle_weapon_events.before(animate_targets))
+        .add_plugins(WeaponsGltfPlugin)
+        .add_systems(Update,
+        handle_inputs,
         )
         .add_event::<WeaponEvent>();
     }
@@ -34,7 +33,7 @@ fn handle_inputs(
 ) {
     for (system_entity, mut weapon_system) in weapon_systems_query.iter_mut() {
         if mouse.just_pressed(MouseButton::Left) {
-            if let Ok(shoot_type) = weapon_system.inventory.try_fire(time.elapsed_seconds()).map_err(|e| println!("{:?}", e)) {
+            if let Ok(shoot_type) = weapon_system.inventory.try_fire(time.elapsed_seconds()) {
                 weapon_events_writer.send(WeaponEvent {
                     event_type: WeaponEventType::Shoot(shoot_type),
                     system_entity,
@@ -43,7 +42,7 @@ fn handle_inputs(
             }
         }
         if keys.just_pressed(KeyCode::KeyR) {
-            if let Ok(reload_type) = weapon_system.inventory.try_reload(time.elapsed_seconds()).map_err(|e| println!("{:?}", e)) {
+            if let Ok(reload_type) = weapon_system.inventory.try_reload(time.elapsed_seconds()) {
                 weapon_events_writer.send(WeaponEvent {
                     event_type: WeaponEventType::StartReload(reload_type),
                     system_entity,
@@ -52,7 +51,7 @@ fn handle_inputs(
             }
         }
         if keys.just_pressed(KeyCode::Digit1) {
-            if weapon_system.inventory.swap_weapon(time.elapsed_seconds(), 0).map_err(|e| println!("{:?}", e)).is_ok() {
+            if weapon_system.inventory.swap_weapon(time.elapsed_seconds(), 0).is_ok() {
                 weapon_events_writer.send(WeaponEvent {
                     event_type: WeaponEventType::Equip,
                     system_entity,

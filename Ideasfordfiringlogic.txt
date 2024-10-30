@@ -1,0 +1,4 @@
+Plan A:
+
+Module WeaponRaycaster:
+Ecoute pour les shoot events, fait un raycast tout droit et émet un événement quand il touche quelque chose (Entité touchée, position)

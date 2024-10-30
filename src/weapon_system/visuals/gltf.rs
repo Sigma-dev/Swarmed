@@ -1,10 +1,9 @@
 use std::{f32::consts::PI, time::Duration};
 
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{prelude::*, utils::HashMap, animation::animate_targets};
 
-use crate::{animated_gltf::AnimatedGltf, weapon_system::weapon};
 
-use super::{WeaponEvent, WeaponEventType, WeaponSystem};
+use crate::{animated_gltf::AnimatedGltf, weapon_system::{weapon, weapon_inventory::{ReloadType, ShootType}, WeaponEvent, WeaponEventType, WeaponSystem}};
 
 #[derive(Component, Debug, Clone)]
 pub struct WeaponVisualsGltf {
@@ -15,6 +14,17 @@ pub struct WeaponVisualsGltf {
 pub struct WeaponVisualsManagerGltf {
     pub match_list: HashMap<String, String>,
     pub system: Entity,
+}
+
+pub struct WeaponsGltfPlugin;
+
+impl Plugin for WeaponsGltfPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Update, (
+            pre_spawn,
+            handle_weapon_events.before(animate_targets))
+        );
+    }
 }
 
 pub(crate) fn handle_weapon_events(
@@ -48,6 +58,7 @@ pub fn pre_spawn(
                 p.spawn((
                     SpatialBundle {
                         transform: Transform::from_xyz(0.015, -0.015, -0.05).with_scale(Vec3::splat(0.2)),
+                        visibility: Visibility::Hidden,
                         ..default()
                     },
                     AnimatedGltf::new(gltf_path),
@@ -62,14 +73,14 @@ pub fn pre_spawn(
 
 fn weapon_event_to_animation_name(weapon_event: &WeaponEvent) -> String {
     match &weapon_event.event_type {
-        super::WeaponEventType::StartReload(reload_type) => match reload_type {
-                super::weapon_inventory::ReloadType::Normal => "Reload",
-                super::weapon_inventory::ReloadType::Empty => "ReloadEmpty",
+        WeaponEventType::StartReload(reload_type) => match reload_type {
+                ReloadType::Normal => "Reload",
+                ReloadType::Empty => "ReloadEmpty",
             }
-        super::WeaponEventType::Shoot(shoot_type) => match shoot_type {
-                super::weapon_inventory::ShootType::Normal => "Shoot",
-                super::weapon_inventory::ShootType::Last => "ShootLast",
+        WeaponEventType::Shoot(shoot_type) => match shoot_type {
+                ShootType::Normal => "Shoot",
+                ShootType::Last => "ShootLast",
             }
-        super::WeaponEventType::Equip =>  "Equip",
+        WeaponEventType::Equip =>  "Equip",
     }.to_string()
 }
