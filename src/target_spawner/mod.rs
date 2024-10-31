@@ -22,11 +22,14 @@ impl TargetRespawner {
     }
 }
 
+#[derive(Component)]
+pub struct HealthShrinker;
+
 pub struct TargetSpawnerPlugin;
 
 impl Plugin for TargetSpawnerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, handle_respawning);
+        app.add_systems(Update, (handle_respawning, handle_shrinking));
     }
 }
 
@@ -50,14 +53,23 @@ fn handle_respawning(
             let id = commands.spawn((
                 PbrBundle {
                     mesh: meshes.add(Cuboid { half_size: Vec3::splat(0.5) }),
-                    material: materials.add(StandardMaterial::default()),
+                    material: materials.add(StandardMaterial::from_color(Color::linear_rgb(1., 0., 0.))),
                     transform: Transform::from_translation(respawner.spawn_position),
                     ..Default::default()
                 },
                 Health::new(100),
                 WeaponTarget,
+                HealthShrinker,
             )).id();
             respawner.entity = Some(id);
         }
+    }
+}
+
+fn handle_shrinking(
+    mut shrinker_query: Query<(&mut Transform, &Health), Changed<Health>>
+) {
+    for (mut shrinker_transform, health) in shrinker_query.iter_mut() {
+        shrinker_transform.scale = Vec3::splat(health.get_hp() as f32 / health.get_max_hp() as f32);
     }
 }

@@ -124,23 +124,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_translation(Vec3::new(0., 1.1, 0.)), 
-            ..default()
-        },
-        AnimatedGltf::new("weapons/glock/glock.glb"),
-        Name::new("Glock")
-    ));
-    commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_translation(Vec3::new(0., 1., 0.)), 
-            ..default()
-        },
-        AnimatedGltf::new("weapons/glock/glock.glb"),
-    ));
-
-    commands.spawn(TargetRespawner::new(Vec3 { x: 0., y: 1., z: 0. }, 2.));
+    commands.spawn(TargetRespawner::new(Vec3 { x: 5., y: 1., z: 0. }, 2.));
 
     let texture_handle = asset_server.load("crosshairs/default.png");
 
