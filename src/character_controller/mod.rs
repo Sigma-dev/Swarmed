@@ -13,7 +13,7 @@ use avian3d::{
 use bevy::{
     color::palettes::css, math::VectorSpace, prelude::*, render::view::visibility, utils::HashMap
 };
-use bevy_steam_p2p::{NetworkIdentity, networked_transform::{ NetworkedTransform } };
+use bevy_steam_p2p::{networked_transform::NetworkedTransform, NetworkIdentity, SteamP2PClient };
 use camera_rig::{RiggedCamera, TrackedEntity};
 use input::PlayerActions;
 use leafwing_input_manager::InputManagerBundle;
@@ -103,12 +103,14 @@ pub struct CurrentPlayer;
 pub struct Player;
 
 pub fn spawn_test_character(
+    mut client: &mut ResMut<SteamP2PClient>,
     mut commands: &mut Commands,
     mut meshes: &mut ResMut<Assets<Mesh>>,
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
     network_identity: NetworkIdentity,
     mut crosshair_query: &mut Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>
 ) {
+    let id = network_identity.owner_id.clone();
     let character = commands.spawn((
         CharacterControllerBundle::default(),
         PbrBundle {
@@ -143,31 +145,46 @@ pub fn spawn_test_character(
     )).id();
     let mut match_list = HashMap::new();
     match_list.insert("glock".to_string(), "weapons/glock/glock.glb".to_string());
-
-    commands.spawn((
-        RiggedCamera,
-        Camera3dBundle {
-            // Adjust our rotation so we're looking backwards on spawn
-            transform: Transform::from_xyz(0.0, 0.0, 0.0)
-                .looking_at(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 1.0, 0.0)).with_scale(Vec3::ONE * 15.),
-            camera: Camera {
-                clear_color: ClearColorConfig::Custom(Color::linear_rgb(0.384, 0.71, 0.949)),
+    if client.id == id {
+        commands.spawn((
+            RiggedCamera,
+            Camera3dBundle {
+                // Adjust our rotation so we're looking backwards on spawn
+                transform: Transform::from_xyz(0.0, 0.0, 0.0)
+                    .looking_at(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 1.0, 0.0)).with_scale(Vec3::ONE * 15.),
+                camera: Camera {
+                    clear_color: ClearColorConfig::Custom(Color::linear_rgb(0.384, 0.71, 0.949)),
+                    ..Default::default()
+                },
+                projection: Projection::Perspective(PerspectiveProjection {
+                    near: 0.01,
+                    ..default()
+                }),
                 ..Default::default()
             },
-            projection: Projection::Perspective(PerspectiveProjection {
-                near: 0.01,
+            WeaponVisualsManagerGltf {
+                match_list,
+                system: character,
+            },
+            WeaponRaycaster {
+                system: character
+            }
+        ));
+    } else {
+        commands.spawn((
+            RiggedCamera,
+            SpatialBundle {
                 ..default()
-            }),
-            ..Default::default()
-        },
-        WeaponVisualsManagerGltf {
-            match_list,
-            system: character,
-        },
-        WeaponRaycaster {
-            system: character
-        }
-    ));
+            },
+            WeaponVisualsManagerGltf {
+                match_list,
+                system: character,
+            },
+            WeaponRaycaster {
+                system: character
+            }
+        ));
+    }
     
     for (mut style, mut visibility, maybe_crosshair) in crosshair_query.iter_mut() {
         style.set_changed();

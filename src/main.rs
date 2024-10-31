@@ -98,12 +98,13 @@ fn handle_unhandled_instantiations(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut asset_server: ResMut<AssetServer>,
-    mut crosshair_query: Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>
+    mut crosshair_query: Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>,
+    mut client: ResMut<SteamP2PClient>,
 ) {
     for ev in evs_unhandled.read() {
         println!("Instantiated");
         if ev.network_identity.instantiation_path == "Player" {
-            spawn_test_character(&mut commands, &mut meshes, &mut materials, ev.network_identity.clone(),  &mut crosshair_query);
+            spawn_test_character(&mut client, &mut commands, &mut meshes, &mut materials, ev.network_identity.clone(),  &mut crosshair_query);
         }
     }
 }

@@ -1,0 +1,15 @@
+Spawning:
+    Plan A:
+        Check if local, if it is spawn it as a child of a camera else spawn it on an empty transform (to avoid duplicate cameras)
+
+Sync animations:
+    Plan A:
+        Sender:
+            create a NetworkedWeapon Component that is listening to the weapon events and sends NetworkObjectData packet with inside, the network identity of the player controller, the id for changing an anim (say 0) and in the data a single u8 that maps to an anim
+        Receiver:
+            change bevy_p2p so that it sends events when receiving an ObjectData packet, with the data inside the event.
+            then NetworkedWeapon reads that message, checks if the network_identity fits with it's parent's, then if action id is 0 then it plays the anim from the index (make an enum :D)
+
+Sync damage
+    Plan A:
+        Sender:
