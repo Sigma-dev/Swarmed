@@ -172,7 +172,6 @@ pub fn spawn_test_character(
         ));
     } else {
         commands.spawn((
-            RiggedCamera,
             SpatialBundle {
                 ..default()
             },
