@@ -19,7 +19,7 @@ use input::PlayerActions;
 use leafwing_input_manager::InputManagerBundle;
 use movement::Gravity;
 
-use crate::weapon_system::{auxiliary::weapon_raycaster::WeaponRaycaster, visuals::gltf::WeaponVisualsManagerGltf, weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem};
+use crate::{weapon_system::{auxiliary::weapon_raycaster::WeaponRaycaster, visuals::gltf::WeaponVisualsManagerGltf, weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem}, Crosshair};
 
 mod camera_rig;
 mod input;
@@ -106,7 +106,8 @@ pub fn spawn_test_character(
     mut commands: &mut Commands,
     mut meshes: &mut ResMut<Assets<Mesh>>,
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
-    network_identity: NetworkIdentity
+    network_identity: NetworkIdentity,
+    mut crosshair_query: &mut Query<&mut Style>
 ) {
     let character = commands.spawn((
         CharacterControllerBundle::default(),
@@ -167,4 +168,8 @@ pub fn spawn_test_character(
             system: character
         }
     ));
+    
+    for mut crosshair in crosshair_query.iter_mut() {
+       crosshair.set_changed();
+    }
 }

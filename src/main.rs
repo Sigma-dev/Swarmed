@@ -1,7 +1,7 @@
 use std::f32::{consts::*, NAN};
 use animated_gltf::{AnimatedGltf, AnimatedGltfPlugin};
 use avian3d::{prelude::{Collider, ColliderConstructor, ColliderConstructorHierarchy, RigidBody}, PhysicsPlugins};
-use bevy::{diagnostic::LogDiagnosticsPlugin, math::{NormedVectorSpace, VectorSpace}, prelude::*, render::{mesh::{self, skinning::SkinnedMesh}, settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin}};
+use bevy::{color::palettes::css::{ANTIQUE_WHITE, CRIMSON}, diagnostic::LogDiagnosticsPlugin, math::{NormedVectorSpace, VectorSpace}, prelude::*, render::{mesh::{self, skinning::SkinnedMesh}, settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use bevy_steam_p2p::*;
 use character_controller::spawn_test_character;
@@ -30,6 +30,9 @@ mod target_spawner;
 struct Movable {
     pub speed: f32
 }
+
+#[derive(Component)]
+struct Crosshair;
 
 fn main() {
     App::new()
@@ -86,12 +89,13 @@ fn handle_unhandled_instantiations(
     mut evs_unhandled: EventReader<UnhandledInstantiation>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut asset_server: ResMut<AssetServer>
+    mut asset_server: ResMut<AssetServer>,
+    mut crosshair_query: Query<&mut Style>
 ) {
     for ev in evs_unhandled.read() {
         println!("Instantiated");
         if ev.network_identity.instantiation_path == "Player" {
-            spawn_test_character(&mut commands, &mut meshes, &mut materials, ev.network_identity.clone());
+            spawn_test_character(&mut commands, &mut meshes, &mut materials, ev.network_identity.clone(),  &mut crosshair_query);
         }
     }
 }
@@ -110,6 +114,7 @@ fn update(
 fn setup(
     mut commands: Commands, 
     asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     commands.spawn((
         SpatialBundle {
@@ -128,6 +133,35 @@ fn setup(
     ));
 
     commands.spawn(TargetRespawner::new(Vec3 { x: 0., y: 1., z: 0. }, 2.));
+
+    let texture_handle = asset_server.load("crosshairs/default.png");
+
+    commands
+    .spawn(NodeBundle {
+        style: Style {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        ..default()
+    })
+    .with_children(|parent| {
+        parent.spawn((
+            ImageBundle {
+                style: Style {
+                    width: Val::Px(32.),
+                    height: Val::Px(32.),
+                    ..default()
+                },
+                image: UiImage::new(texture_handle),
+                ..default()
+            },
+            Crosshair,
+        ),
+        );
+    });
     /* 
     commands.spawn(
         SceneBundle {
