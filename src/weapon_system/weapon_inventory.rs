@@ -34,7 +34,7 @@ impl WeaponInventory {
         Ok(())
     }
 
-    pub fn try_fire(&mut self, time: f32) -> Result<ShootType, weapon::FireError> {
+    pub fn try_fire(&mut self, time: f32) -> Result<(u32, ShootType), weapon::FireError> {
         if self.is_swapping(time) { return Err(weapon::FireError::SwappingWeapons)};
         let Some(weapon) = self.get_equipped_weapon_mut() else { return Err(weapon::FireError::WeaponUnavailable)};
         weapon.try_fire(time)

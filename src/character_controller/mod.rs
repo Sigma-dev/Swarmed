@@ -19,7 +19,7 @@ use input::PlayerActions;
 use leafwing_input_manager::InputManagerBundle;
 use movement::Gravity;
 
-use crate::weapon_system::{visuals::gltf::WeaponVisualsManagerGltf, weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem};
+use crate::weapon_system::{auxiliary::weapon_raycaster::WeaponRaycaster, visuals::gltf::WeaponVisualsManagerGltf, weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem};
 
 mod camera_rig;
 mod input;
@@ -123,7 +123,8 @@ pub fn spawn_test_character(
         WeaponSystem {
             inventory: WeaponInventory::new(vec![
                 Weapon::new(
-                    WeaponCharacteristics { 
+                    WeaponCharacteristics {
+                        damage: 40,
                         max_loaded: 12,
                         max_ammo: 250,
                         fire_cd: 0.2,
@@ -162,5 +163,8 @@ pub fn spawn_test_character(
             match_list,
             system: character,
         },
+        WeaponRaycaster {
+            system: character
+        }
     ));
 }

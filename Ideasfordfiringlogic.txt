@@ -2,3 +2,11 @@ Plan A:
 
 Module WeaponRaycaster:
 Ecoute pour les shoot events, fait un raycast tout droit et émet un événement quand il touche quelque chose (Entité touchée, position)
+
+Module WeaponTarget:
+Lit les eventt WeaponRaycastHit
+Si il trouve un module Health, fait baisser les hps
+
+Module Health BasicShit
+Commence avec X
+Méthode pour baisser, système check si <= 0 destruction

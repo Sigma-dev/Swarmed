@@ -77,7 +77,7 @@ fn weapon_event_to_animation_name(weapon_event: &WeaponEvent) -> String {
                 ReloadType::Normal => "Reload",
                 ReloadType::Empty => "ReloadEmpty",
             }
-        WeaponEventType::Shoot(shoot_type) => match shoot_type {
+        WeaponEventType::Shoot(_, shoot_type) => match shoot_type {
                 ShootType::Normal => "Shoot",
                 ShootType::Last => "ShootLast",
             }

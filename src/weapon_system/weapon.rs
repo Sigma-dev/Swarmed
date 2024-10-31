@@ -12,13 +12,14 @@ pub struct Weapon {
 }
 
 pub struct WeaponCharacteristics {
+    pub(crate) damage: u32,
     pub(crate) max_loaded: u32,
-    pub(crate)max_ammo: u32,
-    pub(crate)fire_cd: f32,
-    pub(crate)reload_time: f32,
-    pub(crate)equip_time: f32,
-    pub(crate)unequip_time: f32,
-    pub(crate)reloading_empties_mag: bool,
+    pub(crate) max_ammo: u32,
+    pub(crate) fire_cd: f32,
+    pub(crate) reload_time: f32,
+    pub(crate) equip_time: f32,
+    pub(crate) unequip_time: f32,
+    pub(crate) reloading_empties_mag: bool,
 }
 
 impl Weapon {
@@ -34,14 +35,14 @@ impl Weapon {
         }
     }
 
-    pub fn try_fire(&mut self, time: f32) -> Result<ShootType, FireError> {
+    pub fn try_fire(&mut self, time: f32) -> Result<(u32, ShootType), FireError> {
         self.can_fire(time)?;
         self.last_fire_time = Some(time);
         self.ammo_loaded -= 1;
         if (self.ammo_loaded == 0) {
-            return Ok(ShootType::Last);
+            return Ok((self.characteristics.damage, ShootType::Last));
         }
-        Ok(ShootType::Normal)
+        Ok((self.characteristics.damage, ShootType::Normal))
     }
 
     pub fn try_reload(&mut self, time: f32) -> Result<ReloadType, ReloadError> {

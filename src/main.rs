@@ -7,10 +7,12 @@ use bevy_steam_p2p::*;
 use character_controller::spawn_test_character;
 use fps_camera::{FpsCamera, FpsCameraPlugin};
 use fps_movement::{CharacterControllerBundle, CharacterControllerPlugin};
+use health::{Health, HealthPlugin};
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
 use spider::spawn_spider;
-use weapon_system::WeaponSystemPlugin;
+use target_spawner::{TargetRespawner, TargetSpawnerPlugin};
+use weapon_system::{auxiliary::weapon_target::WeaponTarget, WeaponSystemPlugin};
 use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;
@@ -21,6 +23,8 @@ mod fps_movement;
 mod character_controller;
 mod weapon_system;
 mod animated_gltf;
+mod health;
+mod target_spawner;
 
 #[derive(Component)]
 struct Movable {
@@ -37,7 +41,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin, WeaponSystemPlugin, AnimatedGltfPlugin))
+        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin, WeaponSystemPlugin, AnimatedGltfPlugin, HealthPlugin, TargetSpawnerPlugin))
         .add_plugins((LogDiagnosticsPlugin::default(), PhysicsPlugins::default(), CharacterControllerPlugin, character_controller::plugin))
         .insert_resource(AmbientLight {
             brightness: 750.0,
@@ -122,6 +126,8 @@ fn setup(
         },
         AnimatedGltf::new("weapons/glock/glock.glb"),
     ));
+
+    commands.spawn(TargetRespawner::new(Vec3 { x: 0., y: 1., z: 0. }, 2.));
     /* 
     commands.spawn(
         SceneBundle {
