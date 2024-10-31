@@ -11,7 +11,7 @@ use avian3d::{
     }
 };
 use bevy::{
-    color::palettes::css, math::VectorSpace, prelude::*, utils::HashMap
+    color::palettes::css, math::VectorSpace, prelude::*, render::view::visibility, utils::HashMap
 };
 use bevy_steam_p2p::{NetworkIdentity, networked_transform::{ NetworkedTransform } };
 use camera_rig::{RiggedCamera, TrackedEntity};
@@ -107,7 +107,7 @@ pub fn spawn_test_character(
     mut meshes: &mut ResMut<Assets<Mesh>>,
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
     network_identity: NetworkIdentity,
-    mut crosshair_query: &mut Query<&mut Style>
+    mut crosshair_query: &mut Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>
 ) {
     let character = commands.spawn((
         CharacterControllerBundle::default(),
@@ -169,7 +169,10 @@ pub fn spawn_test_character(
         }
     ));
     
-    for mut crosshair in crosshair_query.iter_mut() {
-       crosshair.set_changed();
+    for (mut style, mut visibility, maybe_crosshair) in crosshair_query.iter_mut() {
+        style.set_changed();
+        if let Some(_) = maybe_crosshair {
+            *visibility = Visibility::Inherited
+        } 
     }
 }

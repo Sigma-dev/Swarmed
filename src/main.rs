@@ -34,6 +34,9 @@ struct Movable {
 #[derive(Component)]
 struct Crosshair;
 
+#[derive(Component)]
+struct MenuEntity;
+
 fn main() {
     App::new()
         .add_plugins(SteamP2PPlugin)
@@ -68,6 +71,8 @@ fn steam_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut evs_lobby: EventReader<LobbyJoined>,
     mut client: ResMut<SteamP2PClient>,
+    mut commands: Commands,
+    menu_query: Query<Entity, With<MenuEntity>>
 ) {
     if keys.just_pressed(KeyCode::KeyC) {
         client.create_lobby(8);
@@ -80,6 +85,9 @@ fn steam_system(
     }
 
     for _ in evs_lobby.read() {
+        for menu_entity in menu_query.iter() {
+            commands.get_entity(menu_entity).unwrap().despawn();
+        }
         client.instantiate(FilePath::new("Player"), Vec3::ZERO);
     }
 }
@@ -90,7 +98,7 @@ fn handle_unhandled_instantiations(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut asset_server: ResMut<AssetServer>,
-    mut crosshair_query: Query<&mut Style>
+    mut crosshair_query: Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>
 ) {
     for ev in evs_unhandled.read() {
         println!("Instantiated");
@@ -156,6 +164,7 @@ fn setup(
                     ..default()
                 },
                 image: UiImage::new(texture_handle),
+                visibility: Visibility::Hidden,
                 ..default()
             },
             Crosshair,
@@ -172,13 +181,14 @@ fn setup(
             );
             */
     // Create a camera
-     /* 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-7.0, 7., -7.0)
-            .looking_at(Vec3::new(0.0, 0., 0.0), Vec3::Y),
-        ..default()
-    });
-*/
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-7.0, 7., -7.0)
+                .looking_at(Vec3::new(0.0, 0., 0.0), Vec3::Y),
+            ..default()
+        },
+        MenuEntity
+    ));
     //spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
         
     commands.spawn((
