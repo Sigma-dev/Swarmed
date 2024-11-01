@@ -48,6 +48,7 @@ fn send_packets(
                 0,
                 vec![event.event_type.to_index(), event.weapon_index as u8] 
             );
+            println!("Data: {:?}", data);
             client.send_message_others(data, SendFlags::RELIABLE);
         }
     }
