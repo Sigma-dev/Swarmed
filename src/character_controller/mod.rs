@@ -169,7 +169,8 @@ pub fn spawn_test_character(
             },
             WeaponRaycaster {
                 system: character
-            }
+            },
+            Name::new("WeaponCamera")
         ));
     } else {
         commands.spawn((
@@ -182,6 +183,8 @@ pub fn spawn_test_character(
             },
             WeaponRaycaster {
                 system: character
+            },
+            Name::new("WeaponEmpty"),
             RiggedCamera
         ));
     }
