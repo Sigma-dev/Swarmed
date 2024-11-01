@@ -152,7 +152,7 @@ pub fn spawn_test_character(
             Camera3dBundle {
                 // Adjust our rotation so we're looking backwards on spawn
                 transform: Transform::from_xyz(0.0, 0.0, 0.0)
-                    .looking_at(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 1.0, 0.0)).with_scale(Vec3::ONE * 15.),
+                    .looking_at(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 1.0, 0.0)),
                 camera: Camera {
                     clear_color: ClearColorConfig::Custom(Color::linear_rgb(0.384, 0.71, 0.949)),
                     ..Default::default()

@@ -14,3 +14,17 @@ Sync animations:
 Sync damage
     Plan A:
         Sender:
+
+
+
+
+Ghost glock debugging:
+
+What it's not:
+The correct scene is spawned and remains existing.
+It is not a visibility issue
+Global position of the animated gltf is follows networked player
+
+What it is:
+
+    

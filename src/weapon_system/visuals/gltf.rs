@@ -57,7 +57,7 @@ pub fn pre_spawn(
             for (identifier, gltf_path) in visual.match_list.iter() {
                 p.spawn((
                     SpatialBundle {
-                        transform: Transform::from_xyz(0.05, -0.05, -0.25),
+                        transform: Transform::from_xyz(0.1, -0.075, -0.25),
                         visibility: Visibility::Hidden,
                         ..default()
                     },
