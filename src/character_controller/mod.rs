@@ -182,7 +182,7 @@ pub fn spawn_test_character(
             },
             WeaponRaycaster {
                 system: character
-            }
+            RiggedCamera
         ));
     }
     

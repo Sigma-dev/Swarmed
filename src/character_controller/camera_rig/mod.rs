@@ -25,7 +25,7 @@ pub fn track_entity(
     // There should only ever be one tracked entity and one rigged camera.
     for (tracked_entity, tracked_transform, network_identity) in query.iter_mut() {
         if network_identity.owner_id != client.id { continue; };
-        if let Ok(mut camera_transform) = camera_query.get_single_mut() {
+        for mut camera_transform in camera_query.iter_mut() {
             camera_transform.translation = tracked_entity.0 + tracked_transform.translation;
         }
     }
