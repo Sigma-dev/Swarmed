@@ -22,10 +22,13 @@ fn receive_packets(
 ) {
     for event in networked_actions_reader.read() {
         if event.action_id == 0 {
-            let Some(weapon_action_id) = event.action_data.first() else { continue; };
+            let Some((weapon_index, weapon_action_id)) = (match event.action_data.as_slice() {
+                [weapon_index, weapon_action_id, ..] => Some((weapon_index, weapon_action_id)),
+                _ => None,
+            }) else { continue; };
             for (system_entity, network_identity, weapon_system) in networked_weapon_system_query.iter() {
                 if event.network_identity == *network_identity {
-                    weapon_events_writer.send(WeaponEvent { event_type: WeaponEventType::from_index(*weapon_action_id), system_entity, weapon_index: weapon_system.inventory.get_equipped_index().unwrap()});
+                    weapon_events_writer.send(WeaponEvent { event_type: WeaponEventType::from_index(*weapon_action_id), system_entity, weapon_index: *weapon_index as usize});
                 }
             }
         }
@@ -43,9 +46,8 @@ fn send_packets(
             let data = NetworkData::NetworkedAction(
                 network_identity.clone(),
                 0,
-                vec![event.event_type.to_index()] 
+                vec![event.event_type.to_index(), event.weapon_index as u8] 
             );
-            println!("Data: {:?}", data);
             client.send_message_others(data, SendFlags::RELIABLE);
         }
     }
