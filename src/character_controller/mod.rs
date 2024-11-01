@@ -148,7 +148,7 @@ pub fn spawn_test_character(
     match_list.insert("glock".to_string(), "weapons/glock/glock.glb".to_string());
     if client.id == id {
         commands.spawn((
-            RiggedCamera,
+            RiggedCamera { tracked: character },
             Camera3dBundle {
                 // Adjust our rotation so we're looking backwards on spawn
                 transform: Transform::from_xyz(0.0, 0.0, 0.0)
@@ -185,7 +185,7 @@ pub fn spawn_test_character(
                 system: character
             },
             Name::new("WeaponEmpty"),
-            RiggedCamera
+            RiggedCamera { tracked: character },
         ));
     }
     
