@@ -11,7 +11,8 @@ pub fn plugin(app: &mut App) {
 #[derive(Component, Reflect, Debug)]
 #[reflect(Component)]
 pub struct RiggedCamera {
-    pub tracked: Entity
+    pub tracked: Entity,
+    pub active: bool
 }
 
 // Specifies the entity that we are attached to, as well as the offset from that entity

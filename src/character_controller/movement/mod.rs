@@ -60,8 +60,7 @@ pub fn movement_input(
         &NetworkIdentity
     )>,
     mut camera_query: Query<
-        &mut Transform,
-        (With<RiggedCamera>, Without<ActionState<PlayerActions>>),
+        (&mut Transform, &RiggedCamera), Without<ActionState<PlayerActions>>,
     >,
     time: Res<Time>,
 ) {
@@ -70,15 +69,20 @@ pub fn movement_input(
         if network_identity.owner_id != client.id {
             continue;
         }
-        let Ok(mut camera_transform) = camera_query.get_single_mut() else { return };
+        for (mut camera_transform, rigged) in camera_query.iter_mut() {
+            update_player_movement(action_state, &mut kcc, grounded, &player_transform);
+            if (rigged.active) {
+                update_camera_rotation(
+                    action_state,
+                    &mut camera_transform,
+                    &mut player_transform,
+                    time.delta_seconds(),
+                );
+            }
+        }
+       // let Ok(mut camera_transform) = camera_query.get_single_mut() else { return };
 
-        update_player_movement(action_state, &mut kcc, grounded, &player_transform);
-        update_camera_rotation(
-            action_state,
-            &mut camera_transform,
-            &mut player_transform,
-            time.delta_seconds(),
-        );
+        
     }
     
 }
