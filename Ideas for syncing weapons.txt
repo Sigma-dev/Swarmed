@@ -9,7 +9,8 @@ Sync animations:
         Receiver:
             change bevy_p2p so that it sends events when receiving an ObjectData packet, with the data inside the event.
             then NetworkedWeapon reads that message, checks if the network_identity fits with it's parent's, then if action id is 0 then it plays the anim from the index (make an enum :D)
-
+        PROBLEM:
+            Once the receiver receives the packet and sends a new weapon_event, then it will act as a sender for it's own event, triggering an infinite loop
 Sync damage
     Plan A:
         Sender:

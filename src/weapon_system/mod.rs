@@ -47,6 +47,7 @@ fn handle_inputs(
                     event_type: WeaponEventType::Shoot(damage, shoot_type),
                     system_entity,
                     weapon_index: weapon_system.inventory.get_equipped_index().unwrap(),
+                    authentic: true
                 });
             }
         }
@@ -56,6 +57,7 @@ fn handle_inputs(
                     event_type: WeaponEventType::StartReload(reload_type),
                     system_entity,
                     weapon_index: weapon_system.inventory.get_equipped_index().unwrap(),
+                    authentic: true
                 });
             }
         }
@@ -66,6 +68,7 @@ fn handle_inputs(
                     event_type: WeaponEventType::Equip,
                     system_entity,
                     weapon_index: 0,
+                    authentic: true
                 });
             }
         }
@@ -77,8 +80,8 @@ pub struct WeaponEvent {
     event_type: WeaponEventType,
     system_entity: Entity,
     weapon_index: usize,
+    authentic: bool
 }
-
 pub enum WeaponEventType {
     StartReload(ReloadType),
     Shoot(u32, ShootType),

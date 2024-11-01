@@ -21,6 +21,7 @@ fn receive_packets(
     networked_weapon_system_query: Query<(Entity, &NetworkIdentity, &WeaponSystem), With<NetworkedWeaponSystem>>
 ) {
     for event in networked_actions_reader.read() {
+        println!("Received");
         if event.action_id == 0 {
             let Some((weapon_index, weapon_action_id)) = (match event.action_data.as_slice() {
                 [weapon_index, weapon_action_id, ..] => Some((weapon_index, weapon_action_id)),
@@ -28,7 +29,7 @@ fn receive_packets(
             }) else { continue; };
             for (system_entity, network_identity, weapon_system) in networked_weapon_system_query.iter() {
                 if event.network_identity == *network_identity {
-                    weapon_events_writer.send(WeaponEvent { event_type: WeaponEventType::from_index(*weapon_action_id), system_entity, weapon_index: *weapon_index as usize});
+                    weapon_events_writer.send(WeaponEvent { event_type: WeaponEventType::from_index(*weapon_action_id), system_entity, weapon_index: *weapon_index as usize, authentic: false });
                 }
             }
         }
@@ -41,6 +42,7 @@ fn send_packets(
     networked_weapon_system_query: Query<(Entity, &NetworkIdentity, &NetworkedWeaponSystem), With<WeaponSystem>>
 ) {
     for event in weapon_events_reader.read() {
+        if !event.authentic { continue; };
         for (entity, network_identity, networked_weapon_system) in networked_weapon_system_query.iter() {
             if event.system_entity != entity { continue; };
             let data = NetworkData::NetworkedAction(
