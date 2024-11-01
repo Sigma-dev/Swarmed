@@ -11,20 +11,13 @@ Sync animations:
             then NetworkedWeapon reads that message, checks if the network_identity fits with it's parent's, then if action id is 0 then it plays the anim from the index (make an enum :D)
         PROBLEM:
             Once the receiver receives the packet and sends a new weapon_event, then it will act as a sender for it's own event, triggering an infinite loop
+Sync camera rotations:
+    Plan A:
+        Transform PositionUpdate into Transform Update with Option Vec3: Option Quat Option scale
+        Ajouter les champs sync_position sync_rotation sync_scale à NetworkedTransform
+        Ajouter un NetworkedTransform à l'entité qui tient les guns
 Sync damage
     Plan A:
         Sender:
-
-
-
-
-Ghost glock debugging:
-
-What it's not:
-The correct scene is spawned and remains existing.
-It is not a visibility issue
-Global position of the animated gltf is follows networked player
-
-What it is:
 
     

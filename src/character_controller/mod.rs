@@ -114,12 +114,12 @@ pub fn spawn_test_character(
     let character = commands.spawn((
         CharacterControllerBundle::default(),
         PbrBundle {
-            mesh: meshes.add(Capsule3d { radius: 0.4, half_length: 0.4 }),
+            mesh: meshes.add(Capsule3d { radius: 0.1, half_length: 0.4 }),
             material: materials.add(Color::from(css::DARK_CYAN)),
             transform: Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
             ..Default::default()
         },
-        NetworkedTransform { synced: true, target: Vec3::ZERO },
+        NetworkedTransform::default(),
         network_identity,
         LockedAxes::ROTATION_LOCKED,
         Name::new("CurrentPlayer"),
@@ -148,6 +148,7 @@ pub fn spawn_test_character(
     match_list.insert("glock".to_string(), "weapons/glock/glock.glb".to_string());
     if client.id == id {
         commands.spawn((
+            NetworkedTransform::default(),
             RiggedCamera { tracked: character, active: true },
             Camera3dBundle {
                 // Adjust our rotation so we're looking backwards on spawn
@@ -174,6 +175,7 @@ pub fn spawn_test_character(
         ));
     } else {
         commands.spawn((
+            NetworkedTransform::default(),
             SpatialBundle {
                 ..default()
             },

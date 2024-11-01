@@ -16,12 +16,10 @@ impl Plugin for NetworkedWeaponSystemPlugin {
 
 fn receive_packets(
     mut networked_actions_reader: EventReader<NetworkedAction>,
-    mut client: Res<SteamP2PClient>,
     mut weapon_events_writer: EventWriter<WeaponEvent>,
     networked_weapon_system_query: Query<(Entity, &NetworkIdentity, &WeaponSystem), With<NetworkedWeaponSystem>>
 ) {
     for event in networked_actions_reader.read() {
-        println!("Received");
         if event.action_id == 0 {
             let Some((weapon_index, weapon_action_id)) = (match event.action_data.as_slice() {
                 [weapon_index, weapon_action_id, ..] => Some((weapon_index, weapon_action_id)),
@@ -37,20 +35,19 @@ fn receive_packets(
 }
 
 fn send_packets(
-    mut client: Res<SteamP2PClient>,
+    client: Res<SteamP2PClient>,
     mut weapon_events_reader: EventReader<WeaponEvent>,
-    networked_weapon_system_query: Query<(Entity, &NetworkIdentity, &NetworkedWeaponSystem), With<WeaponSystem>>
+    networked_weapon_system_query: Query<(Entity, &NetworkIdentity), (With<WeaponSystem>, With<NetworkedWeaponSystem>)>
 ) {
     for event in weapon_events_reader.read() {
         if !event.authentic { continue; };
-        for (entity, network_identity, networked_weapon_system) in networked_weapon_system_query.iter() {
+        for (entity, network_identity) in networked_weapon_system_query.iter() {
             if event.system_entity != entity { continue; };
             let data = NetworkData::NetworkedAction(
                 network_identity.clone(),
                 0,
                 vec![event.weapon_index as u8, event.event_type.to_index()] 
             );
-            println!("Data: {:?}", data);
             client.send_message_others(data, SendFlags::RELIABLE);
         }
     }
