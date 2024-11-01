@@ -19,7 +19,7 @@ use input::PlayerActions;
 use leafwing_input_manager::InputManagerBundle;
 use movement::Gravity;
 
-use crate::{weapon_system::{auxiliary::weapon_raycaster::WeaponRaycaster, visuals::gltf::WeaponVisualsManagerGltf, weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem}, Crosshair};
+use crate::{weapon_system::{auxiliary::{weapon_networking::NetworkedWeaponSystem, weapon_raycaster::WeaponRaycaster}, visuals::gltf::WeaponVisualsManagerGltf, weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem}, Crosshair};
 
 mod camera_rig;
 mod input;
@@ -141,7 +141,8 @@ pub fn spawn_test_character(
                     "glock" 
                 )   
             ]),
-        }
+        },
+        NetworkedWeaponSystem
     )).id();
     let mut match_list = HashMap::new();
     match_list.insert("glock".to_string(), "weapons/glock/glock.glb".to_string());

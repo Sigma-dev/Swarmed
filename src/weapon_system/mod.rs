@@ -1,6 +1,6 @@
-use auxiliary::{weapon_raycaster::WeaponRaycasterPlugin, weapon_target::WeaponTargetPlugin};
-use bevy::{animation::animate_targets, prelude::*};
-use visuals::gltf::{WeaponVisualsGltf, WeaponsGltfPlugin};
+use auxiliary::{weapon_networking::NetworkedWeaponSystemPlugin, weapon_raycaster::WeaponRaycasterPlugin, weapon_target::WeaponTargetPlugin};
+use bevy::prelude::*;
+use visuals::gltf::WeaponsGltfPlugin;
 use weapon_inventory::{ReloadType, ShootType, WeaponInventory};
 
 pub mod weapon;
@@ -13,7 +13,7 @@ pub struct WeaponSystemPlugin;
 impl Plugin for WeaponSystemPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_plugins((WeaponsGltfPlugin, WeaponRaycasterPlugin, WeaponTargetPlugin))
+        .add_plugins((WeaponsGltfPlugin, WeaponRaycasterPlugin, WeaponTargetPlugin, NetworkedWeaponSystemPlugin))
         .add_systems(Update,
         handle_inputs,
         )
@@ -75,4 +75,31 @@ pub enum WeaponEventType {
     StartReload(ReloadType),
     Shoot(u32, ShootType),
     Equip
+}
+
+impl WeaponEventType {
+    pub fn to_index(&self) -> u8 {
+        match &self {
+            WeaponEventType::StartReload(reload_type) => match reload_type {
+                ReloadType::Normal => 0,
+                ReloadType::Empty => 1,
+            },
+            WeaponEventType::Shoot(_, shoot_type) => match shoot_type {
+                ShootType::Normal => 2,
+                ShootType::Last => 3,
+            },
+            WeaponEventType::Equip => 4,
+        }
+    }
+
+    pub fn from_index(index: u8) -> WeaponEventType {
+        match index {
+            0 => WeaponEventType::StartReload(ReloadType::Normal),
+            1 => WeaponEventType::StartReload(ReloadType::Empty),
+            2 => WeaponEventType::Shoot(0, ShootType::Normal),
+            3 => WeaponEventType::Shoot(0, ShootType::Last),
+            4 => WeaponEventType::Equip,
+            _ => WeaponEventType::Equip
+        }
+    }
 }
