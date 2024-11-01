@@ -48,7 +48,7 @@ fn send_packets(
             let data = NetworkData::NetworkedAction(
                 network_identity.clone(),
                 0,
-                vec![event.event_type.to_index(), event.weapon_index as u8] 
+                vec![event.weapon_index as u8, event.event_type.to_index()] 
             );
             println!("Data: {:?}", data);
             client.send_message_others(data, SendFlags::RELIABLE);
