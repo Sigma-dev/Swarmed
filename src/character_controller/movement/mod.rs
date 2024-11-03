@@ -71,7 +71,7 @@ pub fn movement_input(
         }
         for (mut camera_transform, rigged) in camera_query.iter_mut() {
             update_player_movement(action_state, &mut kcc, grounded, &player_transform);
-            if (rigged.active) {
+            if rigged.active {
                 update_camera_rotation(
                     action_state,
                     &mut camera_transform,

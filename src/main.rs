@@ -4,7 +4,8 @@ use avian3d::{prelude::{Collider, ColliderConstructor, ColliderConstructorHierar
 use bevy::{color::palettes::css::{ANTIQUE_WHITE, CRIMSON}, diagnostic::LogDiagnosticsPlugin, math::{NormedVectorSpace, VectorSpace}, prelude::*, render::{mesh::{self, skinning::SkinnedMesh}, settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
 use bevy_steam_p2p::*;
-use character_controller::spawn_test_character;
+use character_controller::{spawn_test_character, spawn_weapon_camera, CurrentPlayer, LocalPlayer};
+use debug_component::DebugPlugin;
 use fps_camera::{FpsCamera, FpsCameraPlugin};
 use fps_movement::{CharacterControllerBundle, CharacterControllerPlugin};
 use health::{Health, HealthPlugin};
@@ -16,6 +17,7 @@ use weapon_system::{auxiliary::weapon_target::WeaponTarget, WeaponSystemPlugin};
 use IKArm::{IKArmPlugin, IKArmTarget};
 
 mod IKArm;
+mod debug_component;
 mod leg;
 mod spider;
 mod fps_camera;
@@ -47,14 +49,14 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin, WeaponSystemPlugin, AnimatedGltfPlugin, HealthPlugin, TargetSpawnerPlugin))
+        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin, WeaponSystemPlugin, AnimatedGltfPlugin, HealthPlugin, TargetSpawnerPlugin, DebugPlugin))
         .add_plugins((LogDiagnosticsPlugin::default(), PhysicsPlugins::default(), CharacterControllerPlugin, character_controller::plugin))
         .insert_resource(AmbientLight {
             brightness: 750.0,
             ..default()
         })
         .add_systems(Startup, (setup, ).chain())
-        .add_systems(Update, (movable, steam_system, handle_unhandled_instantiations, update))
+        .add_systems(Update, (movable, steam_system, handle_unhandled_instantiations, update, player_spawned))
         .run();
 }
 
@@ -81,15 +83,23 @@ fn steam_system(
         client.leave_lobby();
     }
     else if keys.just_pressed(KeyCode::KeyT) {
-       client.instantiate(FilePath::new("InstantiationExample"),Vec3 {x:1., y:2., z: 1.}).unwrap_or_else(|e| eprintln!("Instantiation error: {e}"));
+       //client.instantiate(FilePath::new("InstantiationExample"), None, Vec3 {x:1., y:2., z: 1.}).unwrap_or_else(|e| eprintln!("Instantiation error: {e}"));
     }
 
     for _ in evs_lobby.read() {
         for menu_entity in menu_query.iter() {
             commands.get_entity(menu_entity).unwrap().despawn();
         }
-        client.instantiate(FilePath::new("Player"), Vec3::ZERO);
+        let player_network_identity = client.instantiate(FilePath::new("Player"), None,Vec3::ZERO).unwrap();
     }
+}
+
+fn player_spawned(
+    player_query: Query<&NetworkIdentity, Added<LocalPlayer>>,
+    mut client: ResMut<SteamP2PClient>,
+) {
+    let Ok(player) = player_query.get_single() else { return; };
+    client.instantiate(FilePath::new("PlayerCamera"), Some(player.id), Vec3::ZERO);
 }
 
 fn handle_unhandled_instantiations(
@@ -100,11 +110,15 @@ fn handle_unhandled_instantiations(
     mut asset_server: ResMut<AssetServer>,
     mut crosshair_query: Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>,
     mut client: ResMut<SteamP2PClient>,
+    player_query: Query<(Entity, &NetworkIdentity), With<CurrentPlayer>>,
 ) {
     for ev in evs_unhandled.read() {
         println!("Instantiated");
         if ev.network_identity.instantiation_path == "Player" {
-            spawn_test_character(&mut client, &mut commands, &mut meshes, &mut materials, ev.network_identity.clone(),  &mut crosshair_query);
+            spawn_test_character(&mut client, &mut commands, &mut meshes, &mut materials, ev.network_identity.clone());
+        }
+        else if ev.network_identity.instantiation_path == "PlayerCamera" {
+            spawn_weapon_camera(&mut client, &mut commands, ev.network_identity.clone(), &player_query, &mut crosshair_query);
         }
     }
 }

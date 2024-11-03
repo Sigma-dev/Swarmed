@@ -16,6 +16,20 @@ Sync camera rotations:
         Transform PositionUpdate into Transform Update with Option Vec3: Option Quat Option scale
         Ajouter les champs sync_position sync_rotation sync_scale à NetworkedTransform
         Ajouter un NetworkedTransform à l'entité qui tient les guns
+    Problèmes rencontrés:
+        La rotation du glock n'est pas synchronisée malgrée le  NetworkedTransform sur son parent.
+        Debug:
+            Bah en fait c'était jamais synchro vu qu'il n'avait pas de network_identity.
+        Solution A:
+            Lui donner sa propre identitée et le séparer complétement pour qu'il soit réplicable par instantiate
+        Solution B:
+             Le synchro par une autre façon que NetworkedTransform (ObjectData)
+        Solution C (ma préférée mais peut-être pas faisable):
+            Faire en sorte qu'un networked transform puisse être mis sans networked_identity
+            Dans ce cas la la chaîne des parents sera remontée pour trouver l'identitée.
+            J'aime beaucoup
+    
+    
 Sync damage
     Plan A:
         Sender:

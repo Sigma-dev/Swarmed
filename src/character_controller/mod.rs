@@ -19,7 +19,7 @@ use input::PlayerActions;
 use leafwing_input_manager::InputManagerBundle;
 use movement::Gravity;
 
-use crate::{weapon_system::{auxiliary::{weapon_networking::NetworkedWeaponSystem, weapon_raycaster::WeaponRaycaster}, visuals::gltf::WeaponVisualsManagerGltf, weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem}, Crosshair};
+use crate::{debug_component::DebugComponent, weapon_system::{auxiliary::{weapon_networking::NetworkedWeaponSystem, weapon_raycaster::WeaponRaycaster}, visuals::gltf::WeaponVisualsManagerGltf, weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem}, Crosshair};
 
 mod camera_rig;
 mod input;
@@ -102,14 +102,18 @@ pub struct CurrentPlayer;
 #[reflect(Component)]
 pub struct Player;
 
+#[derive(Component, Reflect, Debug, Default)]
+#[reflect(Component)]
+pub struct LocalPlayer;
+
 pub fn spawn_test_character(
     mut client: &mut ResMut<SteamP2PClient>,
     mut commands: &mut Commands,
     mut meshes: &mut ResMut<Assets<Mesh>>,
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
     network_identity: NetworkIdentity,
-    mut crosshair_query: &mut Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>
 ) {
+    let owner_id = network_identity.owner_id;
     let id = network_identity.owner_id.clone();
     let character = commands.spawn((
         CharacterControllerBundle::default(),
@@ -119,7 +123,7 @@ pub fn spawn_test_character(
             transform: Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
             ..Default::default()
         },
-        NetworkedTransform::default(),
+        NetworkedTransform::new(true, false, false),
         network_identity,
         LockedAxes::ROTATION_LOCKED,
         Name::new("CurrentPlayer"),
@@ -142,14 +146,28 @@ pub fn spawn_test_character(
                 )   
             ]),
         },
-        NetworkedWeaponSystem
+        NetworkedWeaponSystem,
     )).id();
+    if client.id == owner_id {
+        commands.get_entity(character).unwrap().insert(LocalPlayer);
+    }
+}
+
+pub fn spawn_weapon_camera(
+    mut client: &mut ResMut<SteamP2PClient>,
+    mut commands: &mut Commands,
+    network_identity: NetworkIdentity,
+    player_query: &Query<(Entity, &NetworkIdentity), With<CurrentPlayer>>,
+    mut crosshair_query: &mut Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>
+) {
+    let (player_entity, player_network_id) = player_query.single();
     let mut match_list = HashMap::new();
     match_list.insert("glock".to_string(), "weapons/glock/glock.glb".to_string());
-    if client.id == id {
+    if client.id == player_network_id.owner_id {
         commands.spawn((
-            NetworkedTransform::default(),
-            RiggedCamera { tracked: character, active: true },
+            network_identity,
+            NetworkedTransform::new(false, true, false),
+            RiggedCamera { tracked: player_entity, active: true },
             Camera3dBundle {
                 // Adjust our rotation so we're looking backwards on spawn
                 transform: Transform::from_xyz(0.0, 0.0, 0.0)
@@ -166,28 +184,27 @@ pub fn spawn_test_character(
             },
             WeaponVisualsManagerGltf {
                 match_list,
-                system: character,
+                system: player_entity,
             },
             WeaponRaycaster {
-                system: character
+                system: player_entity
             },
-            Name::new("WeaponCamera")
+            Name::new("WeaponCamera"),
         ));
     } else {
         commands.spawn((
-            NetworkedTransform::default(),
+            network_identity,
+            NetworkedTransform::new(false, true, false),
             SpatialBundle {
                 ..default()
             },
             WeaponVisualsManagerGltf {
                 match_list,
-                system: character,
-            },
-            WeaponRaycaster {
-                system: character
+                system: player_entity,
             },
             Name::new("WeaponEmpty"),
-            RiggedCamera { tracked: character, active: false },
+            RiggedCamera { tracked: player_entity, active: false },
+            DebugComponent,
         ));
     }
     
