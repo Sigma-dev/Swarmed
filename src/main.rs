@@ -116,6 +116,7 @@ fn handle_unhandled_instantiations(
         if ev.network_identity.instantiation_path == "Player" {
             println!("Instantiated Player");
             spawn_test_character(&mut client, &mut commands, &mut meshes, &mut materials, ev.network_identity.clone());
+            return;
         }
         else if ev.network_identity.instantiation_path == "PlayerCamera" {
             println!("Instantiated Camera");
