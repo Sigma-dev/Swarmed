@@ -163,7 +163,7 @@ pub fn spawn_weapon_camera(
     let (player_entity, player_network_id) = player_query.single();
     let mut match_list = HashMap::new();
     match_list.insert("glock".to_string(), "weapons/glock/glock.glb".to_string());
-    if client.id == player_network_id.owner_id {
+    if client.id == network_identity.owner_id {
         commands.spawn((
             network_identity,
             NetworkedTransform::new(false, true, false),
