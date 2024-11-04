@@ -157,7 +157,7 @@ pub fn spawn_weapon_camera(
     mut client: &mut ResMut<SteamP2PClient>,
     mut commands: &mut Commands,
     network_identity: NetworkIdentity,
-    player_query: &Query<(Entity, &NetworkIdentity)>,
+    player_query: &Query<(Entity, &NetworkIdentity), With<CurrentPlayer>>,
     mut crosshair_query: &mut Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>
 ) {
     let (player_entity, player_network_id) = player_query.iter().find(|(_, p)| p.owner_id == network_identity.owner_id).unwrap();

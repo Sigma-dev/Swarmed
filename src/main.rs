@@ -110,7 +110,7 @@ fn handle_unhandled_instantiations(
     mut asset_server: ResMut<AssetServer>,
     mut crosshair_query: Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>,
     mut client: ResMut<SteamP2PClient>,
-    player_query: Query<(Entity, &NetworkIdentity)>,
+    player_query: Query<(Entity, &NetworkIdentity), With<CurrentPlayer>>,
 ) {
     for ev in evs_unhandled.read() {
         if ev.network_identity.instantiation_path == "Player" {
