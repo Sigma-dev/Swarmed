@@ -112,15 +112,14 @@ fn handle_unhandled_instantiations(
     mut client: ResMut<SteamP2PClient>,
     player_query: Query<(Entity, &NetworkIdentity), With<CurrentPlayer>>,
 ) {
-    for ev in evs_unhandled.read() {
-        if ev.network_identity.instantiation_path == "Player" {
+    for UnhandledInstantiation(data) in evs_unhandled.read() {
+        if data.network_identity.instantiation_path == "Player" {
             println!("Instantiated Player");
-            spawn_test_character(&mut client, &mut commands, &mut meshes, &mut materials, ev.network_identity.clone());
-            return;
+            spawn_test_character(&mut client, &mut commands, &mut meshes, &mut materials, data.network_identity.clone());
         }
-        else if ev.network_identity.instantiation_path == "PlayerCamera" {
+        else if data.network_identity.instantiation_path == "PlayerCamera" {
             println!("Instantiated Camera");
-            spawn_weapon_camera(&mut client, &mut commands, ev.network_identity.clone(), &player_query, &mut crosshair_query);
+            spawn_weapon_camera(&mut client, &mut commands, data.network_identity.clone(), &player_query, &mut crosshair_query);
         }
     }
 }
