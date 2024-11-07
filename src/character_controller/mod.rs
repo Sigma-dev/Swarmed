@@ -151,7 +151,7 @@ pub fn spawn_test_character(
     if client.id == owner_id {
         character.insert((
             LocalPlayer,
-            SpatialListener::new(0.2)
+            SpatialListener::new(-0.2)
         ));
     }
 }
