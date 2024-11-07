@@ -18,7 +18,7 @@ fn handle_weapon_audio(
 ) {
     for weapon_event in weapon_events.read() {
         let (system_entity, system_gt, system) = weapon_system_query.get(weapon_event.system_entity).unwrap();
-        let tag = system.inventory.get_equipped_identifier().unwrap();
+        let tag = system.inventory.get_visual_identifier(weapon_event.weapon_index).unwrap();
         let maybe_sound = match &weapon_event.event_type {
             crate::weapon_system::WeaponEventType::Shoot(_, _) => Some("shoot"),
             crate::weapon_system::WeaponEventType::StartReload(_) => Some("reload"),
