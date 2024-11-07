@@ -1,0 +1,16 @@
+Concept:
+
+Would be cool if we could have networked events:
+Something running on the P2P client's system where you add event types when you make it.
+And then it listens to these events and replicates them.
+
+Plan A:
+    These events would implement a trait that force them to have an entity id. (EntityRef?)
+    Then the system catches the event, gets the entity from identity id, gets the network identity from that entity sends the message to other clients
+    other clients get the message, extracts the event data and the network identity, turn the network_identity into an id then send the events with the data and entity id as if nothing happened
+
+    Problems to solve for this plan:
+        - How does the receiving end know into what event to turn it back into ?
+            Maybe things like Serde can handle this stuff ? (They can't)
+        - These events need to have their data separated from the entity and be serializable
+            Have the id trait also require an implementation that serializes it's non entity id data and deserializes like pack/unpack
