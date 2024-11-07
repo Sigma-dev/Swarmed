@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+mod networked;
+
 #[derive(Component)]
 pub struct Health {
     amount: i32,
