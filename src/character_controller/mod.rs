@@ -115,7 +115,7 @@ pub fn spawn_test_character(
 ) {
     let owner_id = network_identity.owner_id;
     let id = network_identity.owner_id.clone();
-    let character = commands.spawn((
+    let mut character = commands.spawn((
         CharacterControllerBundle::default(),
         PbrBundle {
             mesh: meshes.add(Capsule3d { radius: 0.1, half_length: 0.4 }),
@@ -147,9 +147,12 @@ pub fn spawn_test_character(
             ]),
         },
         NetworkedWeaponSystem,
-    )).id();
+    ));
     if client.id == owner_id {
-        commands.get_entity(character).unwrap().insert(LocalPlayer);
+        character.insert((
+            LocalPlayer,
+            SpatialListener::new(0.2)
+        ));
     }
 }
 

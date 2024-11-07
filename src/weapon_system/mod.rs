@@ -1,4 +1,4 @@
-use auxiliary::{weapon_networking::NetworkedWeaponSystemPlugin, weapon_raycaster::WeaponRaycasterPlugin, weapon_target::WeaponTargetPlugin};
+use auxiliary::{weapon_audio::WeaponAudioPlugin, weapon_networking::NetworkedWeaponSystemPlugin, weapon_raycaster::WeaponRaycasterPlugin, weapon_target::WeaponTargetPlugin};
 use bevy::prelude::*;
 use bevy_steam_p2p::{NetworkIdentity, SteamP2PClient};
 use visuals::gltf::WeaponsGltfPlugin;
@@ -14,7 +14,7 @@ pub struct WeaponSystemPlugin;
 impl Plugin for WeaponSystemPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_plugins((WeaponsGltfPlugin, WeaponRaycasterPlugin, WeaponTargetPlugin, NetworkedWeaponSystemPlugin))
+        .add_plugins((WeaponsGltfPlugin, WeaponRaycasterPlugin, WeaponTargetPlugin, NetworkedWeaponSystemPlugin, WeaponAudioPlugin))
         .add_systems(Update,
         handle_inputs,
         )
@@ -63,7 +63,6 @@ fn handle_inputs(
         }
         if keys.just_pressed(KeyCode::Digit1) {
             if weapon_system.inventory.swap_weapon(time.elapsed_seconds(), 0).is_ok() {
-                println!("Yes I am spamming");
                 weapon_events_writer.send(WeaponEvent {
                     event_type: WeaponEventType::Equip,
                     system_entity,

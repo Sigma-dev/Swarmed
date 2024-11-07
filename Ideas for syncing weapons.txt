@@ -22,12 +22,19 @@ Sync camera rotations:
             Bah en fait c'était jamais synchro vu qu'il n'avait pas de network_identity.
         Solution A:
             Lui donner sa propre identitée et le séparer complétement pour qu'il soit réplicable par instantiate
+            Séparer les spawns en deux instantiations, ajouter un field optionel parent_networked_id avec le network_index du parent au message d'instantiation, pas besoin du owner vu que ce sera le même.
         Solution B:
              Le synchro par une autre façon que NetworkedTransform (ObjectData)
         Solution C (ma préférée mais peut-être pas faisable):
             Faire en sorte qu'un networked transform puisse être mis sans networked_identity
             Dans ce cas la la chaîne des parents sera remontée pour trouver l'identitée.
-            J'aime beaucoup
+        Solution D
+            Créer une déclinaison du network identity pour les entités non primaires type NetworkChildIdentity
+        Solution E:
+            Multiple network identities, all ids synced at instantiation.
+            When the local spawn occurs we send over the :(
+
+            
     
     
 Sync damage

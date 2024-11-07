@@ -1,5 +1,6 @@
 use std::f32::{consts::*, NAN};
 use animated_gltf::{AnimatedGltf, AnimatedGltfPlugin};
+use audio_manager::AudioManagerPlugin;
 use avian3d::{prelude::{Collider, ColliderConstructor, ColliderConstructorHierarchy, RigidBody}, PhysicsPlugins};
 use bevy::{color::palettes::css::{ANTIQUE_WHITE, CRIMSON}, diagnostic::LogDiagnosticsPlugin, math::{NormedVectorSpace, VectorSpace}, prelude::*, render::{mesh::{self, skinning::SkinnedMesh}, settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin}};
 use bevy_mod_raycast::prelude::NoBackfaceCulling;
@@ -22,6 +23,7 @@ mod leg;
 mod spider;
 mod fps_camera;
 mod fps_movement;
+mod audio_manager;
 mod character_controller;
 mod weapon_system;
 mod animated_gltf;
@@ -48,8 +50,11 @@ fn main() {
                 ..default()
             }),
             ..default()
+        }).set(bevy::log::LogPlugin {
+            filter: "symphonia=warn".to_string(),
+            ..default()
         }))
-        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin, WeaponSystemPlugin, AnimatedGltfPlugin, HealthPlugin, TargetSpawnerPlugin, DebugPlugin))
+        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin, WeaponSystemPlugin, AnimatedGltfPlugin, HealthPlugin, TargetSpawnerPlugin, DebugPlugin, AudioManagerPlugin))
         .add_plugins((LogDiagnosticsPlugin::default(), PhysicsPlugins::default(), CharacterControllerPlugin, character_controller::plugin))
         .insert_resource(AmbientLight {
             brightness: 750.0,

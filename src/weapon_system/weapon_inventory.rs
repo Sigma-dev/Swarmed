@@ -57,6 +57,11 @@ impl WeaponInventory {
         Some(equipped.visual_identifier.clone())
     }
 
+    pub fn get_equipped_identifier(&self) -> Option<String> {
+        let equipped = self.get_weapon(self.get_equipped_index()?)?;
+        Some(equipped.visual_identifier.clone())
+    }
+
     pub fn get_equipped_index(&self) -> Option<usize> {
         self.equipped_weapon_index
     }
