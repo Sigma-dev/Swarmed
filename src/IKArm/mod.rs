@@ -1,6 +1,4 @@
-use core::panic;
-use std::f32::consts::PI;
-use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
+use bevy::{prelude::*, render::mesh::skinning::SkinnedMesh};
 
 #[derive(Component)]
 pub struct IKArm {
@@ -96,7 +94,7 @@ fn handle_up(
     }
 }
 
-fn get_knee_position(gizmos: &mut Gizmos, root: Vec3, target: Vec3, up: Vec3, l1: f32, l2: f32) -> Option<Vec3> {
+fn get_knee_position(_gizmos: &mut Gizmos, root: Vec3, target: Vec3, up: Vec3, l1: f32, l2: f32) -> Option<Vec3> {
     let target_direction = (target - root).normalize();
    // gizmos.line(root, target, Color::srgb(0., 0.3, 0.3));
     let knee_circle_center = (target + root) / 2.;

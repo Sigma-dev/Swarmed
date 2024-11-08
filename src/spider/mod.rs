@@ -80,7 +80,7 @@ fn spawn_legs(
                     up: Vec3::Y
                 },
                 IKLeg::new(
-                    Vec3{x: 0.5 * side_mult, y: -0.1, z: 0.35 * front_or_back_mult }, 
+                    Vec3{x: 0.6 * side_mult, y: -0.1, z: 0.45 * front_or_back_mult }, 
                     0.1, 
                     0.15,
                     0.3,
