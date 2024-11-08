@@ -1,0 +1,44 @@
+Spawning:
+    Plan A:
+        Check if local, if it is spawn it as a child of a camera else spawn it on an empty transform (to avoid duplicate cameras) V
+
+Sync animations:
+    Plan A:
+        Sender:
+            create a NetworkedWeapon Component that is listening to the weapon events and sends NetworkObjectData packet with inside, the network identity of the player controller, an action id of 0 and in the data a single u8 that maps to an action
+        Receiver:
+            change bevy_p2p so that it sends events when receiving an ObjectData packet, with the data inside the event.
+            then NetworkedWeapon reads that message, checks if the network_identity fits with it's parent's, then if action id is 0 then it plays the anim from the index (make an enum :D)
+        PROBLEM:
+            Once the receiver receives the packet and sends a new weapon_event, then it will act as a sender for it's own event, triggering an infinite loop
+Sync camera rotations:
+    Plan A:
+        Transform PositionUpdate into Transform Update with Option Vec3: Option Quat Option scale
+        Ajouter les champs sync_position sync_rotation sync_scale à NetworkedTransform
+        Ajouter un NetworkedTransform à l'entité qui tient les guns
+    Problèmes rencontrés:
+        La rotation du glock n'est pas synchronisée malgrée le  NetworkedTransform sur son parent.
+        Debug:
+            Bah en fait c'était jamais synchro vu qu'il n'avait pas de network_identity.
+        Solution A:
+            Lui donner sa propre identitée et le séparer complétement pour qu'il soit réplicable par instantiate
+            Séparer les spawns en deux instantiations, ajouter un field optionel parent_networked_id avec le network_index du parent au message d'instantiation, pas besoin du owner vu que ce sera le même.
+        Solution B:
+             Le synchro par une autre façon que NetworkedTransform (ObjectData)
+        Solution C (ma préférée mais peut-être pas faisable):
+            Faire en sorte qu'un networked transform puisse être mis sans networked_identity
+            Dans ce cas la la chaîne des parents sera remontée pour trouver l'identitée.
+        Solution D
+            Créer une déclinaison du network identity pour les entités non primaires type NetworkChildIdentity
+        Solution E:
+            Multiple network identities, all ids synced at instantiation.
+            When the local spawn occurs we send over the :(
+
+            
+    
+    
+Sync damage
+    Plan A:
+        Sender:
+
+    

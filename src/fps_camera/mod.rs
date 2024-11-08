@@ -1,4 +1,3 @@
-use avian3d::parry::na::coordinates::XYZ;
 use bevy::prelude::*;
 use bevy::input::mouse::MouseMotion;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
@@ -44,24 +43,10 @@ fn handle_fps_cameras(
                 gizmos.line(transform.translation, transform.translation + parent_transform.forward().as_vec3() * 5., Color::srgb(1., 0., 0.));
                 gizmos.line(transform.translation, transform.translation + parent_transform.right().as_vec3() * 5., Color::srgb(0., 1., 0.));
             } else {
-                let transform = transform_query.get_mut(entity).unwrap();
+                let _ = transform_query.get_mut(entity).unwrap();
                 //transform.rotation = Quat::from_axis_angle(Vec3::Y, yaw) * Quat::from_axis_angle(Vec3::X, pitch);
             }
             
-        }
-    }
-}
-
-fn handle_parent_propagation(
-    query: Query<(Entity, &FpsCamera, Option<&Parent>)>,
-    mut transform_query: Query<&mut Transform>
-) {
-    for (entity, fps_camera, maybe_parent) in query.iter() {
-        if let Some(parent) = maybe_parent {
-           // let [transform, parent_transform] = transform_query.many_mut([entity, parent]);
-           // let mut euler = transform.rotation.to_euler(EulerRot::XYZ);
-          //  euler.z = 0;
-           // parent_transform.rotation = Quat::from_euler(EulerRot::XYZ, euler.x, euler.y, euler.z);
         }
     }
 }

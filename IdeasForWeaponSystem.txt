@@ -11,14 +11,21 @@ Composant WeaponSystem (possède un weaponInventory):
 Cette partie logique fait des appels fonctions à WeaponInventory comme TryReload TryFire et relaie les résultats au reste des entitées par des événements:
 FailedReload, SuccesfullReload etc...
 
-
-La partie visuelle est un composant sur la camera qui écoute les événements (equip weapon etc), et match le nom de l'arme à une liste interne (initialisée avec le composant) qui match nom à un fichier gltf. glock -> weapons/glock/glock.gtlf.
-
-Si par exemple un évenement EquipWeapon(0) est reçu, le système query l'inventaire, chope l'identifiant de l'arme (ex: "glock") et charge le modèle gltf.
-Ensuite il écoute les évenements type Tir, Reload et joue l'animation appropriée
-
 Pour le temps de swap:
 Stocker la durée sur les armes, mais gérer le début/fin avec le weaponsystem (qui intercepte le try_fire/try_reload quand il est tj en train de swap)
 
 Pour les updates type changement du nombre de munitions:
 weaponsystem check chaque frame si le nombre a changé en stockant la valeur de la dernière frame, si changement, évenement.
+
+Pour le networking, il faut "simplement" répliquer les events envoyé par WeaponSystem
+
+If it's too hard to get good events from a non expressive WeaponInventory, maybe try async and/or callbacks ?
+
+
+La partie visuelle est un composant sur la camera qui écoute les événements (equip weapon etc), et match le nom de l'arme à une liste interne (initialisée avec le composant) qui match nom à un fichier gltf. glock -> weapons/glock/glock.gtlf.
+Elle regarde ensuite si parmi ses enfants l'un a le composant GltfWeapon qui a un visual_identifier qui match:
+Si oui: l'action lui est passée
+Si non: un nouveau est spawn
+
+Si par exemple le joueur équipe une nouvelle arme, WeaponSysteme éméét un évenement EquipWeapon(InventoryEntity, 0) qui est reçu, le système query l'inventaire, chope l'identifiant de l'arme (ex: "glock") et charge le modèle gltf.
+Ensuite il écoute les évenements type Tir, Reload et joue l'animation appropriée

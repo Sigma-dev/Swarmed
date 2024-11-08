@@ -2,31 +2,29 @@ use avian3d::{
     math::{
         Quaternion,
         Vector,
-    },
-    prelude::{
+    }, prelude::{
         Collider,
         LockedAxes,
         PhysicsSet,
         RigidBody,
         ShapeCaster,
-    },
+    }
 };
 use bevy::{
-    color::palettes::css, math::VectorSpace, prelude::*
+    color::palettes::css, prelude::*, utils::HashMap
 };
-use bevy_steam_p2p::{NetworkIdentity, networked_transform::{ NetworkedTransform } };
-use camera_rig::TrackedEntity;
+use bevy_steam_p2p::{networked_transform::NetworkedTransform, NetworkIdentity, SteamP2PClient };
+use camera_rig::{RiggedCamera, TrackedEntity};
 use input::PlayerActions;
 use leafwing_input_manager::InputManagerBundle;
 use movement::Gravity;
 
-use crate::weapon_system::{weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem};
+use crate::{weapon_system::{auxiliary::{weapon_networking::NetworkedWeaponSystem, weapon_raycaster::WeaponRaycaster}, visuals::gltf::WeaponVisualsManagerGltf, weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem}, Crosshair};
 
 mod camera_rig;
 mod input;
 mod kinematic_controller;
 mod movement;
-mod weapon;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins((
@@ -34,7 +32,6 @@ pub fn plugin(app: &mut App) {
         movement::plugin,
         input::plugin,
         kinematic_controller::plugin,
-        weapon::plugin,
     ));
     app.configure_sets(
         FixedUpdate,
@@ -103,31 +100,38 @@ pub struct CurrentPlayer;
 #[reflect(Component)]
 pub struct Player;
 
+#[derive(Component, Reflect, Debug, Default)]
+#[reflect(Component)]
+pub struct LocalPlayer;
+
 pub fn spawn_test_character(
-    mut commands: &mut Commands,
-    mut meshes: &mut ResMut<Assets<Mesh>>,
-    mut materials: &mut ResMut<Assets<StandardMaterial>>,
-    network_identity: NetworkIdentity
+    client: &mut ResMut<SteamP2PClient>,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    network_identity: NetworkIdentity,
 ) {
-    commands.spawn((
+    let owner_id = network_identity.owner_id;
+    let mut character = commands.spawn((
         CharacterControllerBundle::default(),
         PbrBundle {
-            mesh: meshes.add(Capsule3d { radius: 0.4, half_length: 0.4 }),
+            mesh: meshes.add(Capsule3d { radius: 0.1, half_length: 0.4 }),
             material: materials.add(Color::from(css::DARK_CYAN)),
             transform: Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
             ..Default::default()
         },
-        NetworkedTransform { synced: true, target: Vec3::ZERO },
+        NetworkedTransform::new(true, false, false),
         network_identity,
         LockedAxes::ROTATION_LOCKED,
         Name::new("CurrentPlayer"),
         WeaponSystem {
             inventory: WeaponInventory::new(vec![
                 Weapon::new(
-                    WeaponCharacteristics { 
+                    WeaponCharacteristics {
+                        damage: 40,
                         max_loaded: 12,
                         max_ammo: 250,
-                        fire_cd: 0.1,
+                        fire_cd: 0.2,
                         reload_time: 2.,
                         equip_time: 0.2,
                         unequip_time: 0.1,
@@ -138,6 +142,75 @@ pub fn spawn_test_character(
                     "glock" 
                 )   
             ]),
-        }
+        },
+        NetworkedWeaponSystem,
     ));
+    if client.id == owner_id {
+        character.insert((
+            LocalPlayer,
+            SpatialListener::new(-0.2)
+        ));
+    }
+}
+
+pub fn spawn_weapon_camera(
+    client: &mut ResMut<SteamP2PClient>,
+    commands: &mut Commands,
+    network_identity: NetworkIdentity,
+    player_query: &Query<(Entity, &NetworkIdentity), With<CurrentPlayer>>,
+    crosshair_query: &mut Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>
+) {
+    let (player_entity, _) = player_query.iter().find(|(_, p)| p.owner_id == network_identity.owner_id).unwrap();
+    let mut match_list = HashMap::new();
+    match_list.insert("glock".to_string(), "weapons/glock/glock.glb".to_string());
+    if client.id == network_identity.owner_id {
+        commands.spawn((
+            network_identity,
+            NetworkedTransform::new(false, true, false),
+            RiggedCamera { tracked: player_entity, active: true },
+            Camera3dBundle {
+                // Adjust our rotation so we're looking backwards on spawn
+                transform: Transform::from_xyz(0.0, 0.0, 0.0)
+                    .looking_at(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 1.0, 0.0)),
+                camera: Camera {
+                    clear_color: ClearColorConfig::Custom(Color::linear_rgb(0.384, 0.71, 0.949)),
+                    ..Default::default()
+                },
+                projection: Projection::Perspective(PerspectiveProjection {
+                    near: 0.01,
+                    ..default()
+                }),
+                ..Default::default()
+            },
+            WeaponVisualsManagerGltf {
+                match_list,
+                system: player_entity,
+            },
+            WeaponRaycaster {
+                system: player_entity
+            },
+            Name::new("WeaponCamera"),
+        ));
+    } else {
+        commands.spawn((
+            network_identity,
+            NetworkedTransform::new(false, true, false),
+            SpatialBundle {
+                ..default()
+            },
+            WeaponVisualsManagerGltf {
+                match_list,
+                system: player_entity,
+            },
+            Name::new("WeaponEmpty"),
+            RiggedCamera { tracked: player_entity, active: false },
+        ));
+    }
+    
+    for (mut style, mut visibility, maybe_crosshair) in crosshair_query.iter_mut() {
+        style.set_changed();
+        if let Some(_) = maybe_crosshair {
+            *visibility = Visibility::Inherited
+        } 
+    }
 }

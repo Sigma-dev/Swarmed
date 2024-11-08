@@ -1,4 +1,4 @@
-use super::weapon::{self, ReloadError, Weapon};
+use super::weapon::{self, Weapon};
 pub struct WeaponInventory {
     weapons: Vec<Weapon>,
     equipped_weapon_index: Option<usize>,
@@ -26,7 +26,7 @@ impl WeaponInventory {
             if index == current_index { return Err(SwapError::SameWeapon) }
         };
         if self.is_swapping(time) { return Err(SwapError::AlreadySwapping) }
-        let unequip_time = self.get_equipped_weapon().map(|weapon| weapon.get_unequip_time()).unwrap_or(0.);
+        let unequip_time = self.get_equipped_weapon_mut().map(|weapon| weapon.get_unequip_time()).unwrap_or(0.);
         let Some(equip_time) = self.get_weapon(index).map(|weapon| weapon.get_equip_time()) else { return Err(SwapError::WeaponUnavailable) };
         self.last_swap_duration = Some(unequip_time + equip_time);
         self.last_swap_start = Some(time);
@@ -34,15 +34,15 @@ impl WeaponInventory {
         Ok(())
     }
 
-    pub fn try_fire(&mut self, time: f32) -> Result<(), weapon::FireError> {
+    pub fn try_fire(&mut self, time: f32) -> Result<(u32, ShootType), weapon::FireError> {
         if self.is_swapping(time) { return Err(weapon::FireError::SwappingWeapons)};
-        let Some(weapon) = self.get_equipped_weapon() else { return Err(weapon::FireError::WeaponUnavailable)};
+        let Some(weapon) = self.get_equipped_weapon_mut() else { return Err(weapon::FireError::WeaponUnavailable)};
         weapon.try_fire(time)
     }
 
-    pub fn try_reload(&mut self, time: f32) -> Result<(), weapon::ReloadError> {
+    pub fn try_reload(&mut self, time: f32) -> Result<ReloadType, weapon::ReloadError> {
         if self.is_swapping(time) { return Err(weapon::ReloadError::SwappingWeapons)};
-        let Some(weapon) = self.get_equipped_weapon() else { return Err(weapon::ReloadError::WeaponUnavailable)};
+        let Some(weapon) = self.get_equipped_weapon_mut() else { return Err(weapon::ReloadError::WeaponUnavailable)};
         weapon.try_reload(time)
     }
 
@@ -52,11 +52,33 @@ impl WeaponInventory {
         time < last_swap_start + last_swap_duration
     }
 
-    fn get_equipped_weapon(&mut self) -> Option<&mut Weapon> {
-        self.weapons.get_mut(self.equipped_weapon_index?)
+    pub fn get_visual_identifier(&self, index: usize) -> Option<String> {
+        let equipped = self.get_weapon(index)?;
+        Some(equipped.visual_identifier.clone())
     }
 
-    fn get_weapon(&mut self, index: usize) -> Option<&mut Weapon> {
+    pub fn get_equipped_identifier(&self) -> Option<String> {
+        let equipped = self.get_weapon(self.get_equipped_index()?)?;
+        Some(equipped.visual_identifier.clone())
+    }
+
+    pub fn get_equipped_index(&self) -> Option<usize> {
+        self.equipped_weapon_index
+    }
+
+    fn get_equipped_weapon(&self) -> Option<&Weapon> {
+        self.get_weapon(self.equipped_weapon_index?)
+    }
+
+    fn get_equipped_weapon_mut(&mut self) -> Option<&mut Weapon> {
+        self.get_weapon_mut(self.equipped_weapon_index?)
+    }
+
+    fn get_weapon(&self, index: usize) -> Option<&Weapon> {
+        self.weapons.get(index)
+    }
+
+    fn get_weapon_mut(&mut self, index: usize) -> Option<&mut Weapon> {
         self.weapons.get_mut(index)
     }
 }
@@ -66,4 +88,16 @@ pub enum SwapError {
     SameWeapon,
     AlreadySwapping,
     WeaponUnavailable,
+}
+
+#[derive(Debug)]
+pub enum ShootType {
+    Normal,
+    Last
+}
+
+#[derive(Debug)]
+pub enum ReloadType {
+    Normal,
+    Empty,
 }

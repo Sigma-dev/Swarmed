@@ -10,3 +10,5 @@ Cargo.lock
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
+*.aup3-shm
+*.aup3-wal

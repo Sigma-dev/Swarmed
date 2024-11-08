@@ -1,14 +1,24 @@
+use auxiliary::{weapon_audio::WeaponAudioPlugin, weapon_networking::NetworkedWeaponSystemPlugin, weapon_raycaster::WeaponRaycasterPlugin, weapon_target::WeaponTargetPlugin};
 use bevy::prelude::*;
-use weapon_inventory::WeaponInventory;
+use bevy_steam_p2p::{NetworkIdentity, SteamP2PClient};
+use visuals::gltf::WeaponsGltfPlugin;
+use weapon_inventory::{ReloadType, ShootType, WeaponInventory};
 
 pub mod weapon;
 pub mod weapon_inventory;
+pub mod visuals;
+pub mod auxiliary;
 
 pub struct WeaponSystemPlugin;
 
 impl Plugin for WeaponSystemPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, handle_inputs);
+        app
+        .add_plugins((WeaponsGltfPlugin, WeaponRaycasterPlugin, WeaponTargetPlugin, NetworkedWeaponSystemPlugin, WeaponAudioPlugin))
+        .add_systems(Update,
+        handle_inputs,
+        )
+        .add_event::<WeaponEvent>();
     }
 }
 
@@ -18,20 +28,88 @@ pub struct WeaponSystem {
 }
 
 fn handle_inputs(
-    mut weapon_systems_query: Query<&mut WeaponSystem>,
+    client: Res<SteamP2PClient>,
+    mut weapon_systems_query: Query<(Entity, &mut WeaponSystem, Option<&NetworkIdentity>)>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
-    time: Res<Time>
+    time: Res<Time>,
+    mut weapon_events_writer: EventWriter<WeaponEvent>
 ) {
-    for mut weapon_system in weapon_systems_query.iter_mut() {
+    for (system_entity, mut weapon_system, maybe_network_identity) in weapon_systems_query.iter_mut() {
+        if let Some(network_identity) = maybe_network_identity {
+            if network_identity.owner_id != client.id {
+                continue;
+            }
+        }
         if mouse.just_pressed(MouseButton::Left) {
-            weapon_system.inventory.try_fire(time.elapsed_seconds()).map_err(|e| println!("{:?}", e));
+            if let Ok((damage, shoot_type)) = weapon_system.inventory.try_fire(time.elapsed_seconds()) {
+                weapon_events_writer.send(WeaponEvent {
+                    event_type: WeaponEventType::Shoot(damage, shoot_type),
+                    system_entity,
+                    weapon_index: weapon_system.inventory.get_equipped_index().unwrap(),
+                    authentic: true
+                });
+            }
         }
         if keys.just_pressed(KeyCode::KeyR) {
-            weapon_system.inventory.try_reload(time.elapsed_seconds()).map_err(|e| println!("{:?}", e));
+            if let Ok(reload_type) = weapon_system.inventory.try_reload(time.elapsed_seconds()) {
+                weapon_events_writer.send(WeaponEvent {
+                    event_type: WeaponEventType::StartReload(reload_type),
+                    system_entity,
+                    weapon_index: weapon_system.inventory.get_equipped_index().unwrap(),
+                    authentic: true
+                });
+            }
         }
         if keys.just_pressed(KeyCode::Digit1) {
-            weapon_system.inventory.swap_weapon(time.elapsed_seconds(), 0).map_err(|e| println!("{:?}", e));
+            if weapon_system.inventory.swap_weapon(time.elapsed_seconds(), 0).is_ok() {
+                weapon_events_writer.send(WeaponEvent {
+                    event_type: WeaponEventType::Equip,
+                    system_entity,
+                    weapon_index: 0,
+                    authentic: true
+                });
+            }
+        }
+    }
+}
+
+#[derive(Event)]
+pub struct WeaponEvent {
+    event_type: WeaponEventType,
+    system_entity: Entity,
+    weapon_index: usize,
+    authentic: bool
+}
+pub enum WeaponEventType {
+    StartReload(ReloadType),
+    Shoot(u32, ShootType),
+    Equip
+}
+
+impl WeaponEventType {
+    pub fn to_index(&self) -> u8 {
+        match &self {
+            WeaponEventType::StartReload(reload_type) => match reload_type {
+                ReloadType::Normal => 0,
+                ReloadType::Empty => 1,
+            },
+            WeaponEventType::Shoot(_, shoot_type) => match shoot_type {
+                ShootType::Normal => 2,
+                ShootType::Last => 3,
+            },
+            WeaponEventType::Equip => 4,
+        }
+    }
+
+    pub fn from_index(index: u8) -> WeaponEventType {
+        match index {
+            0 => WeaponEventType::StartReload(ReloadType::Normal),
+            1 => WeaponEventType::StartReload(ReloadType::Empty),
+            2 => WeaponEventType::Shoot(0, ShootType::Normal),
+            3 => WeaponEventType::Shoot(0, ShootType::Last),
+            4 => WeaponEventType::Equip,
+            _ => WeaponEventType::Equip
         }
     }
 }
