@@ -3,9 +3,9 @@ use std::env;
 use bevy::prelude::*;
 use leg::LegPlugin;
 use spider::spawn_spider;
-use IKArm::IKArmPlugin;
+use ik_arm::IKArmPlugin;
 
-mod IKArm;
+mod ik_arm;
 mod leg;
 mod spider;
 

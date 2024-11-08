@@ -1,7 +1,7 @@
 use bevy::{prelude::*, render::render_resource::encase::rts_array::Length};
 use bevy_mod_raycast::prelude::*;
 
-use crate::IKArm;
+use crate::ik_arm;
 #[derive(Copy, Clone, PartialEq, Default)]
 pub enum LegSide {
     Left,
@@ -70,7 +70,7 @@ impl Plugin for LegPlugin {
 
 fn setup_legs(
     trigger: Trigger<OnAdd, IKLeg>,
-    mut leg_query: Query<(&GlobalTransform, &mut IKArm::IKArm, &IKLeg)>
+    mut leg_query: Query<(&GlobalTransform, &mut ik_arm::IKArm, &IKLeg)>
   ) {
     let Ok((transform, mut arm, leg)) = leg_query.get_mut(trigger.entity()) else {return;};
     arm.target = transform.translation() + leg.step_offset;
@@ -255,7 +255,7 @@ fn handle_leg_creature(
 
 fn handle_legs(
     leg_creature_query: Query<(&LegCreature, &GlobalTransform)>,
-    mut leg_query: Query<(&mut IKArm::IKArm, &mut IKLeg)>,
+    mut leg_query: Query<(&mut ik_arm::IKArm, &mut IKLeg)>,
     mut raycast: Raycast,
     mut gizmos: Gizmos,
     names_query: Query<&Name>,

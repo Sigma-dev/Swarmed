@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{leg::{IKLeg, LegCreature, LegSide}, IKArm::{self, IKArmTarget}, Movable};
+use crate::{ik_arm::{self, IKArmTarget}, leg::{IKLeg, LegCreature, LegSide}, Movable};
 
 pub fn spawn_spider(
     mut commands: &mut Commands,
@@ -41,7 +41,7 @@ pub fn _spawn_test_arm(
             .load(GltfAssetLabel::Scene(0).from_asset("leg/legV2.glb")),
             ..default()
         }, 
-        IKArm::IKArm { 
+        ik_arm::IKArm { 
             target: Vec3{x: 1., y: 1., z: 1.},
             up: Vec3::Y
         },
@@ -73,7 +73,7 @@ fn spawn_legs(
                     scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("leg/legV2.glb")),
                     ..default()
                 }, 
-                IKArm::IKArm { 
+                ik_arm::IKArm { 
                     target: Vec3{x: 1., y: 0., z: 1.},
                     up: Vec3::Y
                 },
