@@ -48,9 +48,7 @@ fn send_packets(
     for event in weapon_events_reader.read() {
         if !event.authentic { continue; };
         for (entity, network_identity) in networked_weapon_system_query.iter() {
-            println!("c");
             if event.entity != entity { continue; };
-            println!("d");
             let data = NetworkData::NetworkedAction(
                 network_identity.clone(),
                 1,
