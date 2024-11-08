@@ -12,8 +12,8 @@ use fps_movement::{CharacterControllerBundle, CharacterControllerPlugin};
 use health::{Health, HealthPlugin};
 use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
 use rand::distributions::Standard;
+use shooting_target::{spawn_shooting_target, ShootingTargetPlugin};
 use spider::spawn_spider;
-use target_spawner::{TargetRespawner, TargetSpawnerPlugin};
 use weapon_system::{auxiliary::weapon_target::WeaponTarget, WeaponSystemPlugin};
 use IKArm::{IKArmPlugin, IKArmTarget};
 
@@ -28,7 +28,7 @@ mod character_controller;
 mod weapon_system;
 mod animated_gltf;
 mod health;
-mod target_spawner;
+mod shooting_target;
 
 #[derive(Component)]
 struct Movable {
@@ -54,7 +54,7 @@ fn main() {
             filter: "symphonia=warn".to_string(),
             ..default()
         }))
-        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin, WeaponSystemPlugin, AnimatedGltfPlugin, HealthPlugin, TargetSpawnerPlugin, DebugPlugin, AudioManagerPlugin))
+        .add_plugins((IKArmPlugin, LegPlugin, FpsCameraPlugin, WeaponSystemPlugin, AnimatedGltfPlugin, HealthPlugin, DebugPlugin, AudioManagerPlugin, ShootingTargetPlugin))
         .add_plugins((LogDiagnosticsPlugin::default(), PhysicsPlugins::default(), CharacterControllerPlugin, character_controller::plugin))
         .insert_resource(AmbientLight {
             brightness: 750.0,
@@ -95,7 +95,10 @@ fn steam_system(
         for menu_entity in menu_query.iter() {
             commands.get_entity(menu_entity).unwrap().despawn();
         }
-        let player_network_identity = client.instantiate(FilePath::new("Player"), None,Vec3::ZERO).unwrap();
+        client.instantiate(FilePath::new("Player"), None,Vec3::ZERO).expect("Couldn't spawn player");
+        if client.is_lobby_owner().unwrap_or_default() {
+            client.instantiate(FilePath::new("ShootingTarget"), None,Vec3 { x: 5., y: 1., z: 0. }).expect("Couldn't spawn target");
+        }
     }
 }
 
@@ -104,7 +107,7 @@ fn player_spawned(
     mut client: ResMut<SteamP2PClient>,
 ) {
     let Ok(player) = player_query.get_single() else { return; };
-    client.instantiate(FilePath::new("PlayerCamera"), Some(player.id), Vec3::ZERO);
+    client.instantiate(FilePath::new("PlayerCamera"), Some(player.id), Vec3::ZERO).expect("Couldn't spawn player camera");
 }
 
 fn handle_unhandled_instantiations(
@@ -125,6 +128,9 @@ fn handle_unhandled_instantiations(
         else if data.network_identity.instantiation_path == "PlayerCamera" {
             println!("Instantiated Camera");
             spawn_weapon_camera(&mut client, &mut commands, data.network_identity.clone(), &player_query, &mut crosshair_query);
+        } else if data.network_identity.instantiation_path == "ShootingTarget" {
+            println!("Instantiated Target");
+            spawn_shooting_target(&mut client, &mut commands, &mut meshes, &mut materials, data.clone());
         }
     }
 }
@@ -145,8 +151,6 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    commands.spawn(TargetRespawner::new(Vec3 { x: 5., y: 1., z: 0. }, 2.));
-
     let texture_handle = asset_server.load("crosshairs/default.png");
 
     commands

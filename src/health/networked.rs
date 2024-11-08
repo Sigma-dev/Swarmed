@@ -25,7 +25,7 @@ fn receive_packets(
     mut networked_weapon_system_query: Query<(&NetworkIdentity, &mut Health), With<NetworkedHealth>>
 ) {
     for event in networked_actions_reader.read() {
-        println!("B");
+        println!("B {}", event.action_id);
         if event.action_id == 1 {
             println!("C");
             let change: NetworkedChange = rmp_serde::from_slice(&event.action_data).unwrap();
@@ -48,7 +48,9 @@ fn send_packets(
     for event in weapon_events_reader.read() {
         if !event.authentic { continue; };
         for (entity, network_identity) in networked_weapon_system_query.iter() {
+            println!("c");
             if event.entity != entity { continue; };
+            println!("d");
             let data = NetworkData::NetworkedAction(
                 network_identity.clone(),
                 1,

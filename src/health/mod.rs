@@ -3,11 +3,19 @@ use networked::NetworkedHealthPlugin;
 
 mod networked;
 
+#[derive(PartialEq)]
+enum DeathState {
+    Alive,
+    Dying,
+    Dead
+}
+
 #[derive(Component)]
 pub struct Health {
     amount: i32,
     max_amount: u32,
-    dead: bool,
+    dead: DeathState,
+    destroy_on_death: bool,
     queued_health_changes: Vec<QueuedHealthChange>
 }
 
@@ -30,8 +38,8 @@ pub struct Death {
 }
 
 impl Health {
-    pub fn new(max: u32) -> Health {
-        Health { amount: max as i32, max_amount: max, dead: false, queued_health_changes: Vec::new() }
+    pub fn new(max: u32, destroy_on_death: bool) -> Health {
+        Health { amount: max as i32, max_amount: max, dead: DeathState::Alive, queued_health_changes: Vec::new(), destroy_on_death }
     }
     
     pub fn take_damage(&mut self, damage: u32, authentic: bool) {
@@ -59,12 +67,35 @@ impl Health {
         }
     }
 
+    pub fn set_health(&mut self, new: i32, authentic: bool) -> Result<(), ()> {
+        if new > self.max_amount as i32 {
+            return Err(());
+        }
+        if new < 0 {
+            return Err(());
+        }
+        let diff = new - self.get_hp();
+        self.change(diff, authentic);
+        return Ok(());
+    }
+    
+    pub fn reset(&mut self, authentic: bool) {
+        self.set_full_hp(authentic);
+        self.dead = DeathState::Alive;
+    }
+
+    pub fn set_full_hp(&mut self, authentic: bool) {
+        let _ = self.set_health(self.max_amount as i32, authentic);
+    }
+
     pub fn die(&mut self) {
-        self.dead = true;
+        if self.dead == DeathState::Alive {
+            self.dead = DeathState::Dying
+        }
     }
 
     pub fn is_dead(&self) -> bool {
-        self.dead
+        !(self.dead == DeathState::Alive)
     }
 
     pub fn get_hp(&self) -> i32 {
@@ -90,13 +121,16 @@ impl Plugin for HealthPlugin {
 
 fn handle_deaths(
     mut commands: Commands,
-    health_query: Query<(Entity, &Health), Changed<Health>>,
+    mut health_query: Query<(Entity, &mut Health), Changed<Health>>,
     mut deaths_writer: EventWriter<Death>
 ) {
-    for (entity, health) in health_query.iter() {
-        if health.is_dead() {
-            commands.get_entity(entity).unwrap().despawn();
+    for (entity, mut health) in health_query.iter_mut() {
+        if health.dead == DeathState::Dying {
+            if health.destroy_on_death {
+                commands.get_entity(entity).unwrap().despawn();
+            }
             deaths_writer.send(Death { entity: entity });
+            health.dead = DeathState::Dead;
         }
     }
 }

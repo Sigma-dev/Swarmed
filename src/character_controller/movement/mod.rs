@@ -7,7 +7,7 @@ use avian3d::{
     },
 };
 use bevy::prelude::*;
-use bevy_steam_p2p::{networked_transform, NetworkIdentity, SteamP2PClient};
+use bevy_steam_p2p::{NetworkIdentity, SteamP2PClient};
 use leafwing_input_manager::{
     plugin::InputManagerPlugin,
     prelude::ActionState,
@@ -26,7 +26,7 @@ pub fn plugin(app: &mut App) {
         (velocity_dampening, update_grounded, movement_input, gravity_system)
             .chain()
             .in_set(CharacterControllerSet::Input),
-    );
+    ).add_systems(Update, update_camera_rotation);
     app.add_plugins(InputManagerPlugin::<PlayerActions>::default());
 }
 
@@ -59,30 +59,13 @@ pub fn movement_input(
         &mut Transform,
         &NetworkIdentity
     )>,
-    mut camera_query: Query<
-        (&mut Transform, &RiggedCamera), Without<ActionState<PlayerActions>>,
-    >,
-    time: Res<Time>,
 ) {
     // Early return if we can't get the player or camera
-    for (action_state, mut kcc, grounded, mut player_transform, network_identity) in player_query.iter_mut() {
+    for (action_state, mut kcc, grounded, player_transform, network_identity) in player_query.iter_mut() {
         if network_identity.owner_id != client.id {
             continue;
         }
-        for (mut camera_transform, rigged) in camera_query.iter_mut() {
-            update_player_movement(action_state, &mut kcc, grounded, &player_transform);
-            if rigged.active {
-                update_camera_rotation(
-                    action_state,
-                    &mut camera_transform,
-                    &mut player_transform,
-                    time.delta_seconds(),
-                );
-            }
-        }
-       // let Ok(mut camera_transform) = camera_query.get_single_mut() else { return };
-
-        
+        update_player_movement(action_state, &mut kcc, grounded, &player_transform);
     }
     
 }
@@ -115,19 +98,31 @@ fn update_player_movement(
 
 /// Updates the camera and player rotation based on mouse input
 fn update_camera_rotation(
-    action_state: &ActionState<PlayerActions>,
-    camera_transform: &mut Transform,
-    player_transform: &mut Transform,
-    delta_time: f32,
+    client: Res<SteamP2PClient>,
+    mut player_query: Query<(
+        &ActionState<PlayerActions>,
+        &mut Transform,
+        &NetworkIdentity
+    )>,
+    mut camera_query: Query<
+        (&mut Transform, &RiggedCamera), Without<ActionState<PlayerActions>>,
+    >,
+    time: Res<Time>,
 ) {
-    let sensitivity = Vec2::new(0.12, 0.10);
-    let mouse_delta = action_state.axis_pair(&PlayerActions::Camera) * delta_time * sensitivity;
-    let (mut yaw, mut pitch, _) = camera_transform.rotation.to_euler(EulerRot::YXZ);
-    pitch = (pitch + -mouse_delta.y).clamp(-1.54, 1.54);
-    yaw -= mouse_delta.x;
+    for (action_state, mut player_transform, network_identity) in player_query.iter_mut() {
+        if network_identity.owner_id != client.id { continue; }
+        for (mut camera_transform, rigged) in camera_query.iter_mut() {
+            if !rigged.active { return; }
+            let sensitivity = Vec2::new(0.12, 0.10);
+            let mouse_delta = action_state.axis_pair(&PlayerActions::Camera) * time.delta_seconds() * sensitivity;
+            let (mut yaw, mut pitch, _) = camera_transform.rotation.to_euler(EulerRot::YXZ);
+            pitch = (pitch + -mouse_delta.y).clamp(-1.54, 1.54);
+            yaw -= mouse_delta.x;
 
-    camera_transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
-    player_transform.rotation = Quat::from_rotation_y(yaw);
+            camera_transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
+            player_transform.rotation = Quat::from_rotation_y(yaw);
+        }
+    }
 }
 
 pub fn velocity_dampening(mut query: Query<&mut KinematicCharacterController>, _time: Res<Time>) {
