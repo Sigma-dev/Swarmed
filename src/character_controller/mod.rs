@@ -207,7 +207,6 @@ pub fn spawn_weapon_camera(
             },
             Name::new("WeaponEmpty"),
             RiggedCamera { tracked: player_entity, active: false },
-            DebugComponent,
         ));
     }
     

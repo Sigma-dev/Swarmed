@@ -24,7 +24,7 @@ fn handle_hits(
         for (entity, maybe_health) in target_query.iter_mut() {
             if event.entity != entity { continue; };
             if let Some(mut health) = maybe_health {
-                health.take_damage(event.damage);
+                health.take_damage(event.damage, true);
             }
         }
     }

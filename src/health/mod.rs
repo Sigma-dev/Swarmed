@@ -21,6 +21,7 @@ pub struct HealthChange {
 pub struct QueuedHealthChange {
     pub change: i32,
     pub new_health: i32,
+    pub authentic: bool,
 }
 
 #[derive(Event)]
@@ -33,24 +34,28 @@ impl Health {
         Health { amount: max as i32, max_amount: max, dead: false, queued_health_changes: Vec::new() }
     }
     
-    pub fn take_damage(&mut self, damage: u32) {
+    pub fn take_damage(&mut self, damage: u32, authentic: bool) {
         self.amount -= damage as i32;
-        self.queued_health_changes.push(QueuedHealthChange { change: -(damage as i32), new_health: self.amount });
+        if authentic {
+            self.queued_health_changes.push(QueuedHealthChange { change: -(damage as i32), new_health: self.amount, authentic });   
+        }
         if self.amount <= 0 {
             self.die();
         }
     }
     
-    pub fn heal(&mut self, heal: u32) {
+    pub fn heal(&mut self, heal: u32, authentic: bool) {
         self.amount = (self.amount + heal as i32).min(self.max_amount as i32);
-        self.queued_health_changes.push(QueuedHealthChange { change: heal as i32, new_health: self.amount });
+        if authentic {
+            self.queued_health_changes.push(QueuedHealthChange { change: heal as i32, new_health: self.amount, authentic });
+        }
     }
 
-    pub fn change(&mut self, change: i32) {
+    pub fn change(&mut self, change: i32, authentic: bool) {
         if change > 0 {
-            self.heal(change as u32)
+            self.heal(change as u32, authentic)
         } else {
-            self.take_damage(-change as u32);
+            self.take_damage(-change as u32, authentic);
         }
     }
 

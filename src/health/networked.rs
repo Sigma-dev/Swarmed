@@ -25,11 +25,15 @@ fn receive_packets(
     mut networked_weapon_system_query: Query<(&NetworkIdentity, &mut Health), With<NetworkedHealth>>
 ) {
     for event in networked_actions_reader.read() {
+        println!("B");
         if event.action_id == 1 {
+            println!("C");
             let change: NetworkedChange = rmp_serde::from_slice(&event.action_data).unwrap();
             for (network_identity, mut health) in networked_weapon_system_query.iter_mut() {
+                println!("D");
                 if event.network_identity == *network_identity {
-                    health.change(change.change);
+                    println!("E");
+                    health.change(change.change, false);
                 }
             }
         }
