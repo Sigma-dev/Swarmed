@@ -42,10 +42,10 @@ fn receive_packets(
 
 fn send_packets(
     client: Res<SteamP2PClient>,
-    mut weapon_events_reader: EventReader<HealthChange>,
+    mut health_changes_reader: EventReader<HealthChange>,
     networked_weapon_system_query: Query<(Entity, &NetworkIdentity), (With<Health>, With<NetworkedHealth>)>
 ) {
-    for event in weapon_events_reader.read() {
+    for event in health_changes_reader.read() {
         if !event.authentic { continue; };
         for (entity, network_identity) in networked_weapon_system_query.iter() {
             if event.entity != entity { continue; };

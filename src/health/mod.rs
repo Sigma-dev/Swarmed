@@ -139,9 +139,10 @@ fn handle_health_changes(
     mut health_query: Query<(Entity, &mut Health)>,
     mut changes_writer: EventWriter<HealthChange>
 ) {
-    for (entity, health) in health_query.iter_mut() {
+    for (entity, mut health) in health_query.iter_mut() {
         for queued in &health.queued_health_changes {
             changes_writer.send(HealthChange { entity, change: queued.change, new_health: queued.new_health, authentic: true });
         }
+        health.queued_health_changes.clear();
     }
 }

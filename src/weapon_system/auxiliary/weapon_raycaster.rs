@@ -34,6 +34,7 @@ fn handle_events(
     mut hit_events: EventWriter<WeaponHit>,
 ) {
     for event in weapon_events.read() {
+        if !event.authentic { return; };
         if let WeaponEventType::Shoot(damage, _) = event.event_type {
             for (raycaster_transform, raycaster) in raycaster_query.iter() {
                 if raycaster.system != event.system_entity { return; };
