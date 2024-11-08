@@ -1,4 +1,7 @@
 use bevy::prelude::*;
+use networked::NetworkedHealthPlugin;
+
+mod networked;
 
 #[derive(Component)]
 pub struct Health {
@@ -13,6 +16,7 @@ pub struct HealthChange {
     pub entity: Entity,
     pub change: i32,
     pub new_health: i32,
+    pub authentic: bool,
 }
 pub struct QueuedHealthChange {
     pub change: i32,
@@ -42,6 +46,14 @@ impl Health {
         self.queued_health_changes.push(QueuedHealthChange { change: heal as i32, new_health: self.amount });
     }
 
+    pub fn change(&mut self, change: i32) {
+        if change > 0 {
+            self.heal(change as u32)
+        } else {
+            self.take_damage(-change as u32);
+        }
+    }
+
     pub fn die(&mut self) {
         self.dead = true;
     }
@@ -64,6 +76,7 @@ pub struct HealthPlugin;
 impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
         app
+        .add_plugins(NetworkedHealthPlugin)
         .add_systems(Update, (handle_health_changes, handle_deaths))
         .add_event::<HealthChange>()
         .add_event::<Death>();
@@ -87,9 +100,9 @@ fn handle_health_changes(
     mut health_query: Query<(Entity, &mut Health)>,
     mut changes_writer: EventWriter<HealthChange>
 ) {
-    for (entity, mut health) in health_query.iter_mut() {
+    for (entity, health) in health_query.iter_mut() {
         for queued in &health.queued_health_changes {
-            changes_writer.send(HealthChange { entity, change: queued.change, new_health: queued.new_health });
+            changes_writer.send(HealthChange { entity, change: queued.change, new_health: queued.new_health, authentic: true });
         }
     }
 }
