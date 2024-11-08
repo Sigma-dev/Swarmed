@@ -1,0 +1,14 @@
+Cleanup:
+Remove all warnings
+Move LegCreatureCode to it's own file
+Remove commented garbage
+Remove unused code
+
+Features:
+Add debugging flags for the different parts of the spider 
+    - raycasting for leg
+    - raycasting for body
+Add a simple waypoint system with the mouse to test "dynamic" navigation in preparation for vlueue
+
+Fixes:
+Fix spider floating in midair when climbing up

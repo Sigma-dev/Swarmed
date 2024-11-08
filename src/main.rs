@@ -1,10 +1,9 @@
-use std::{env, f32::{consts::*, NAN}};
-use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*, render::mesh::{self, skinning::SkinnedMesh}};
-use bevy_mod_raycast::prelude::NoBackfaceCulling;
-use leg::{IKLeg, LegCreature, LegCreatureVisual, LegPlugin, LegSide};
-use rand::distributions::Standard;
-use spider::{spawn_spider, spawn_test_arm};
-use IKArm::{IKArmPlugin, IKArmTarget};
+use std::env;
+
+use bevy::prelude::*;
+use leg::LegPlugin;
+use spider::spawn_spider;
+use IKArm::IKArmPlugin;
 
 mod IKArm;
 mod leg;
@@ -37,8 +36,10 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
     // Create a camera
     commands.spawn((Camera3dBundle {
             transform: Transform::from_xyz(-7.0, 7., -7.0)
@@ -52,11 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
             ],
             index: 0,
         }
-    ));
-
-    spawn_spider(&mut commands, &asset_server, &mut meshes, &mut materials);
-    //spawn_test_arm(&mut commands, &asset_server, &mut meshes, &mut materials);
-        
+    ));        
     commands.spawn((
         SceneBundle {
         scene: asset_server.load("map/map.glb#Scene0"),
@@ -65,6 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         },
         GroundMarker,
     ));
+
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
@@ -74,13 +72,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: Res
         ..default()
     });
 
+    spawn_spider(&mut commands, &asset_server);
 }
 
 fn movable(
     mut transform_query: Query<&mut Transform, With<Movable>>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    for (mut movable_transform) in transform_query.iter_mut() {
+    for mut movable_transform in transform_query.iter_mut() {
         let mut vec = Vec3::ZERO;
         if keys.pressed(KeyCode::KeyW) {
             vec.z += 1.0

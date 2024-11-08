@@ -1,3 +1,5 @@
+use std::f32::consts::FRAC_PI_2;
+
 use bevy::{prelude::*, render::mesh::skinning::SkinnedMesh};
 
 #[derive(Component)]
@@ -33,7 +35,7 @@ fn handle_arm_targets(
 fn handle_ik(
     arm_query: Query<(Entity, &mut IKArm)>,
     children_query: Query<&Children>,
-    parent_query: Query<(Entity, &SkinnedMesh)>,
+    parent_query: Query<&SkinnedMesh>,
     mut transform_query: Query<&mut Transform>,
     gtransform_query: Query<&mut GlobalTransform>,
     mut gizmos: Gizmos,
@@ -41,9 +43,9 @@ fn handle_ik(
     for (arm_entity, arm) in arm_query.iter() {
         for child in children_query.iter_descendants(arm_entity) {
             //Get the info from bevy
-            let Ok((entity, skinned_mesh)) = parent_query.get(child) else {continue;};
+            let Ok(skinned_mesh) = parent_query.get(child) else {continue;};
             let Ok([root_transform]) = gtransform_query.get_many([arm_entity]) else { println!("fuck"); continue; };
-            let Ok([mut t0, mut t1, mut arm_transform]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1], arm_entity]) else { println!("fuck"); continue; };
+            let Ok([mut t0, mut t1]) = transform_query.get_many_mut([skinned_mesh.joints[0], skinned_mesh.joints[1]]) else { println!("fuck"); continue; };
 
             //Calculate the important positions
             let root = root_transform.translation();
@@ -53,14 +55,14 @@ fn handle_ik(
             let Some(knee_position) = get_knee_position(&mut gizmos, root, target_position, arm.up, l1, l2) else { continue; };
 
             //Visualize stuff
-           // gizmos.line(knee_position, target_position, Color::srgb(0., 0.5, 0.));
+            //gizmos.line(knee_position, target_position, Color::srgb(0., 0.5, 0.));
             //gizmos.sphere(knee_position, Quat::IDENTITY, 0.1, Color::srgb(0., 1., 0.));
 
             //Rotate the bones (t0 & t1) so that the mesh matches the positions
             let knee_direction: Vec3 = (knee_position - root_transform.translation()).normalize();
             let target_direction: Vec3 = (arm.target - knee_position).normalize();
             t0.look_at((target_position - root).reject_from(knee_direction), knee_direction);
-            t0.rotate_local_y(-crate::FRAC_PI_2);
+            t0.rotate_local_y(-FRAC_PI_2);
             let angle = t0.up().angle_between(target_direction);
             t1.rotation = Quat::from_axis_angle(Vec3::Z, angle);
         }
@@ -94,7 +96,7 @@ fn handle_up(
     }
 }
 
-fn get_knee_position(_gizmos: &mut Gizmos, root: Vec3, target: Vec3, up: Vec3, l1: f32, l2: f32) -> Option<Vec3> {
+fn get_knee_position(_gizmos: &mut Gizmos, root: Vec3, target: Vec3, up: Vec3, l1: f32, _l2: f32) -> Option<Vec3> {
     let target_direction = (target - root).normalize();
    // gizmos.line(root, target, Color::srgb(0., 0.3, 0.3));
     let knee_circle_center = (target + root) / 2.;

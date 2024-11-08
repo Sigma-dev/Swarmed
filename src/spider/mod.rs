@@ -1,12 +1,10 @@
-use bevy::{color::palettes::css::BLACK, math::{NormedVectorSpace, VectorSpace}, prelude::*, reflect::Array, render::mesh::{self, skinning::SkinnedMesh}};
+use bevy::prelude::*;
 
 use crate::{leg::{IKLeg, LegCreature, LegSide}, IKArm::{self, IKArmTarget}, Movable};
 
 pub fn spawn_spider(
     mut commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-    mut meshes: &mut ResMut<Assets<Mesh>>,
-    mut materials: &mut ResMut<Assets<StandardMaterial>>
 ) {
     let legs_info: Vec<(Entity, Vec3)> = spawn_legs(&mut commands, &asset_server);
 
@@ -23,11 +21,11 @@ pub fn spawn_spider(
     ));
 }
 
-pub fn spawn_test_arm(
-    mut commands: &mut Commands,
+pub fn _spawn_test_arm(
+    commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-    mut meshes: &mut ResMut<Assets<Mesh>>,
-    mut materials: &mut ResMut<Assets<StandardMaterial>>
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>
 ) {
     let target = commands.spawn((
         PbrBundle {
@@ -55,20 +53,20 @@ pub fn spawn_test_arm(
 }
 
 fn spawn_legs(
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     asset_server: &Res<AssetServer>
 ) -> Vec<(Entity, Vec3)> {
     let mut left_legs = Vec::new();
     let mut right_legs = Vec::new();
     for i in 0..2 {
-        let side_mult = if (i == 0) { 1. }  else {-1.};
-        let side = if (i == 0) { LegSide::Left }  else { LegSide::Right };
-        let side2 = if (i == 0) { LegSide::Right }  else { LegSide::Left };
+        let side_mult = if i == 0 { 1. }  else {-1.};
+        let side = if i == 0 { LegSide::Left }  else { LegSide::Right };
+        let side2 = if i == 0 { LegSide::Right }  else { LegSide::Left };
         for j in 0..2 {
-            let front_or_back_mult = if (j == 0) { 1. }  else {-1.};
+            let front_or_back_mult = if j == 0 { 1. }  else {-1.};
             let offset = Vec3::new(0.15 * side_mult, -0.1, 0.1 * front_or_back_mult);
             let side3 = if j == 0 { side } else {side2};
-            let collector = if (i == 0) { &mut left_legs } else {&mut right_legs };
+            let collector = if i == 0 { &mut left_legs } else {&mut right_legs };
             let name = format!("{i}{j}", i=i, j=j);
             collector.push((commands.spawn((
                 SceneBundle {
