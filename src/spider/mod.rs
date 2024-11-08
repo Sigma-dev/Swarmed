@@ -11,10 +11,9 @@ pub fn spawn_spider(
     let legs_info: Vec<(Entity, Vec3)> = spawn_legs(&mut commands, &asset_server);
 
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.3, 0.3, 0.3)),
+        SceneBundle {
+            scene: asset_server.load("spider/spiderV2.glb#Scene0"),
             transform: Transform::from_xyz(0., 0.3, 0.0),
-            material: materials.add(Color::srgb_u8(10, 10, 10)),
             ..default()
         },
         //Movable,
@@ -41,7 +40,7 @@ pub fn spawn_test_arm(
 
     commands.spawn((SceneBundle {
         scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("leg/leg2.glb")),
+            .load(GltfAssetLabel::Scene(0).from_asset("leg/legV2.glb")),
             ..default()
         }, 
         IKArm::IKArm { 
@@ -71,9 +70,9 @@ fn spawn_legs(
             let side3 = if j == 0 { side } else {side2};
             let collector = if (i == 0) { &mut left_legs } else {&mut right_legs };
             let name = format!("{i}{j}", i=i, j=j);
-            collector.push((commands.spawn((SceneBundle {
-                scene: asset_server
-                    .load(GltfAssetLabel::Scene(0).from_asset("leg/leg.glb")),
+            collector.push((commands.spawn((
+                SceneBundle {
+                    scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("leg/legV2.glb")),
                     ..default()
                 }, 
                 IKArm::IKArm { 
