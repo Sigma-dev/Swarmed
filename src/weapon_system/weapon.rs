@@ -39,7 +39,7 @@ impl Weapon {
         self.can_fire(time)?;
         self.last_fire_time = Some(time);
         self.ammo_loaded -= 1;
-        if (self.ammo_loaded == 0) {
+        if self.ammo_loaded == 0 {
             return Ok((self.characteristics.damage, ShootType::Last));
         }
         Ok((self.characteristics.damage, ShootType::Normal))

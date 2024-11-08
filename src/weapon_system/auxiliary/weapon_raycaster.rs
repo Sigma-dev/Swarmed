@@ -20,7 +20,7 @@ pub struct WeaponRaycasterPlugin;
 impl Plugin for WeaponRaycasterPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_systems(Update, (handle_events))
+        .add_systems(Update, handle_events)
         .add_event::<WeaponHit>()
         ;
     }

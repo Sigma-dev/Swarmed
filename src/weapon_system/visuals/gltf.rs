@@ -1,9 +1,5 @@
-use std::{f32::consts::PI, time::Duration};
-
 use bevy::{prelude::*, utils::HashMap, animation::animate_targets};
-
-
-use crate::{animated_gltf::AnimatedGltf, weapon_system::{weapon, weapon_inventory::{ReloadType, ShootType}, WeaponEvent, WeaponEventType, WeaponSystem}};
+use crate::{animated_gltf::AnimatedGltf, weapon_system::{weapon_inventory::{ReloadType, ShootType}, WeaponEvent, WeaponEventType, WeaponSystem}};
 
 #[derive(Component, Debug, Clone)]
 pub struct WeaponVisualsGltf {

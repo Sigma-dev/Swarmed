@@ -17,7 +17,7 @@ impl Plugin for NetworkedWeaponSystemPlugin {
 fn receive_packets(
     mut networked_actions_reader: EventReader<NetworkedAction>,
     mut weapon_events_writer: EventWriter<WeaponEvent>,
-    networked_weapon_system_query: Query<(Entity, &NetworkIdentity, &WeaponSystem), With<NetworkedWeaponSystem>>
+    networked_weapon_system_query: Query<(Entity, &NetworkIdentity), With<NetworkedWeaponSystem>>
 ) {
     for event in networked_actions_reader.read() {
         if event.action_id == 0 {
@@ -25,7 +25,7 @@ fn receive_packets(
                 [weapon_index, weapon_action_id, ..] => Some((weapon_index, weapon_action_id)),
                 _ => None,
             }) else { continue; };
-            for (system_entity, network_identity, weapon_system) in networked_weapon_system_query.iter() {
+            for (system_entity, network_identity) in networked_weapon_system_query.iter() {
                 if event.network_identity == *network_identity {
                     weapon_events_writer.send(WeaponEvent { event_type: WeaponEventType::from_index(*weapon_action_id), system_entity, weapon_index: *weapon_index as usize, authentic: false });
                 }
@@ -48,7 +48,7 @@ fn send_packets(
                 0,
                 vec![event.weapon_index as u8, event.event_type.to_index()] 
             );
-            client.send_message_others(data, SendFlags::RELIABLE);
+            client.send_message_others(data, SendFlags::RELIABLE).expect("Couldn't send weapon event message");
         }
     }
 }

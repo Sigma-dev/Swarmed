@@ -1,4 +1,4 @@
-use super::weapon::{self, ReloadError, Weapon};
+use super::weapon::{self, Weapon};
 pub struct WeaponInventory {
     weapons: Vec<Weapon>,
     equipped_weapon_index: Option<usize>,

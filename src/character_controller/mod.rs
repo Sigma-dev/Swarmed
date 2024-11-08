@@ -11,7 +11,7 @@ use avian3d::{
     }
 };
 use bevy::{
-    color::palettes::css, math::VectorSpace, prelude::*, render::view::visibility, utils::HashMap
+    color::palettes::css, prelude::*, utils::HashMap
 };
 use bevy_steam_p2p::{networked_transform::NetworkedTransform, NetworkIdentity, SteamP2PClient };
 use camera_rig::{RiggedCamera, TrackedEntity};
@@ -19,13 +19,12 @@ use input::PlayerActions;
 use leafwing_input_manager::InputManagerBundle;
 use movement::Gravity;
 
-use crate::{debug_component::DebugComponent, weapon_system::{auxiliary::{weapon_networking::NetworkedWeaponSystem, weapon_raycaster::WeaponRaycaster}, visuals::gltf::WeaponVisualsManagerGltf, weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem}, Crosshair};
+use crate::{weapon_system::{auxiliary::{weapon_networking::NetworkedWeaponSystem, weapon_raycaster::WeaponRaycaster}, visuals::gltf::WeaponVisualsManagerGltf, weapon::{Weapon, WeaponCharacteristics}, weapon_inventory::WeaponInventory, WeaponSystem}, Crosshair};
 
 mod camera_rig;
 mod input;
 mod kinematic_controller;
 mod movement;
-mod weapon;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins((
@@ -33,7 +32,6 @@ pub fn plugin(app: &mut App) {
         movement::plugin,
         input::plugin,
         kinematic_controller::plugin,
-        weapon::plugin,
     ));
     app.configure_sets(
         FixedUpdate,
@@ -107,14 +105,13 @@ pub struct Player;
 pub struct LocalPlayer;
 
 pub fn spawn_test_character(
-    mut client: &mut ResMut<SteamP2PClient>,
-    mut commands: &mut Commands,
-    mut meshes: &mut ResMut<Assets<Mesh>>,
-    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    client: &mut ResMut<SteamP2PClient>,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
     network_identity: NetworkIdentity,
 ) {
     let owner_id = network_identity.owner_id;
-    let id = network_identity.owner_id.clone();
     let mut character = commands.spawn((
         CharacterControllerBundle::default(),
         PbrBundle {
@@ -157,13 +154,13 @@ pub fn spawn_test_character(
 }
 
 pub fn spawn_weapon_camera(
-    mut client: &mut ResMut<SteamP2PClient>,
-    mut commands: &mut Commands,
+    client: &mut ResMut<SteamP2PClient>,
+    commands: &mut Commands,
     network_identity: NetworkIdentity,
     player_query: &Query<(Entity, &NetworkIdentity), With<CurrentPlayer>>,
-    mut crosshair_query: &mut Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>
+    crosshair_query: &mut Query<(&mut Style, &mut Visibility, Option<&Crosshair>)>
 ) {
-    let (player_entity, player_network_id) = player_query.iter().find(|(_, p)| p.owner_id == network_identity.owner_id).unwrap();
+    let (player_entity, _) = player_query.iter().find(|(_, p)| p.owner_id == network_identity.owner_id).unwrap();
     let mut match_list = HashMap::new();
     match_list.insert("glock".to_string(), "weapons/glock/glock.glb".to_string());
     if client.id == network_identity.owner_id {

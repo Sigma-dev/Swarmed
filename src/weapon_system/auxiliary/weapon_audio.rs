@@ -23,7 +23,6 @@ fn handle_weapon_audio(
             crate::weapon_system::WeaponEventType::Shoot(_, _) => Some("shoot"),
             crate::weapon_system::WeaponEventType::StartReload(_) => Some("reload"),
             crate::weapon_system::WeaponEventType::Equip => Some("equip"),
-            _ => None
         };
         if let Some(sound) = maybe_sound {
             let path = format!("weapons/{tag}/sounds/{sound}.mp3");

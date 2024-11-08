@@ -1,8 +1,7 @@
 use bevy::prelude::*;
-use bevy_mod_raycast::prelude::*;
-use bevy_steam_p2p::{FilePath, InstantiationData, NetworkIdentity, SteamP2PClient};
+use bevy_steam_p2p::{InstantiationData, SteamP2PClient};
 
-use crate::{health::{self, networked::NetworkedHealth, Death, Health}, weapon_system::auxiliary::weapon_target::WeaponTarget};
+use crate::{health::{networked::NetworkedHealth, Death, Health}, weapon_system::auxiliary::weapon_target::WeaponTarget};
 
 #[derive(Component)]
 pub struct ShootingTarget {
@@ -39,8 +38,6 @@ fn handle_deaths(
 }
 
 fn handle_respawning(
-    mut client: ResMut<SteamP2PClient>,
-    mut death_events: EventReader<Death>,
     mut target_query: Query<(&mut Transform, &mut Health, &mut ShootingTarget)>,
     time: Res<Time>
 ) {
@@ -61,10 +58,10 @@ fn handle_shrinking(
 }
 
 pub fn spawn_shooting_target(
-    mut client: &mut ResMut<SteamP2PClient>,
-    mut commands: &mut Commands,
-    mut meshes: &mut ResMut<Assets<Mesh>>,
-    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    client: &mut ResMut<SteamP2PClient>,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
     instantiation_data: InstantiationData,
 ) {
     let owner_id = instantiation_data.network_identity.owner_id;
