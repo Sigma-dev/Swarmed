@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use networked::NetworkedHealthPlugin;
 
-mod networked;
+pub mod networked;
 
 #[derive(PartialEq)]
 enum DeathState {

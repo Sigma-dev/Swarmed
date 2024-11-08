@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_mod_raycast::prelude::*;
 use bevy_steam_p2p::{FilePath, InstantiationData, NetworkIdentity, SteamP2PClient};
 
-use crate::{health::{self, Death, Health}, weapon_system::auxiliary::weapon_target::WeaponTarget};
+use crate::{health::{self, networked::NetworkedHealth, Death, Health}, weapon_system::auxiliary::weapon_target::WeaponTarget};
 
 #[derive(Component)]
 pub struct ShootingTarget {
@@ -77,6 +77,7 @@ pub fn spawn_shooting_target(
             ..Default::default()
         },
         Health::new(100, false),
+        NetworkedHealth,
         WeaponTarget,
         ShootingTarget::new(2.)
     ));
