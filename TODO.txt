@@ -1,8 +1,9 @@
 Cleanup:
-Remove all warnings
+Remove all warnings V
 Move LegCreatureCode to it's own file
 Remove commented garbage
 Remove unused code
+Rewrite the garbage code, like for spawning and unifying the legcreature code
 
 Features:
 Add debugging flags for the different parts of the spider 

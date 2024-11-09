@@ -1,7 +1,7 @@
 use bevy::{prelude::*, render::render_resource::encase::rts_array::Length};
 use bevy_mod_raycast::prelude::*;
 
-use crate::ik_arm;
+use crate::{debug_resource::DebugResource, ik_arm};
 #[derive(Copy, Clone, PartialEq, Default)]
 pub enum LegSide {
     Left,
@@ -56,15 +56,30 @@ impl LegCreature {
 }
 
 #[derive(Component)]
-pub struct LegCreatureVisual {
+pub struct LegCreatureVisual;
+
+#[derive(Resource)]
+struct LegPluginSettings {
+    debug: bool
 }
 
-pub struct LegPlugin;
+#[derive(Default)]
+pub struct LegPlugin {
+    debug: bool
+}
+
+impl LegPlugin {
+    pub fn debug() -> LegPlugin {
+        LegPlugin { debug: true }
+    }
+}
 
 impl Plugin for LegPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, (handle_up, handle_body, determine_side, handle_leg_creature, handle_legs, move_creature, handle_height, ).chain())
         .observe(setup_legs);
+    
+        app.insert_resource(LegPluginSettings { debug: self.debug });
     }
 }
 
@@ -121,7 +136,9 @@ fn handle_body(
 fn handle_height(
     mut leg_creature_query: Query<(&mut Transform, &LegCreature)>,
     mut raycast: Raycast,
+    mut gizmos: Gizmos,
     names_query: Query<&Name>,
+    plugin_settings: Res<LegPluginSettings>,
 ) {
     for ( mut transform, leg_creature) in leg_creature_query.iter_mut() {
         let settings = RaycastSettings {
@@ -129,13 +146,22 @@ fn handle_height(
             filter: &|entity| is_valid_raycast_target(entity, &names_query),
             ..default()
         };
-        let origin = transform.translation;
-        let ray = Ray3d::new(origin, transform.down().as_vec3());
-        let hits = raycast.cast_ray(ray, &settings);
         let mut delta = 0.;
-        if let Some((_, hit_data)) = hits.first() {
-            if hit_data.distance() < leg_creature.target_height + 0.2 {
-                delta = leg_creature.target_height - hit_data.distance()
+        let origin = transform.translation;
+        let straight_down = raycast_first(&mut raycast, Ray3d::new(origin, transform.down().as_vec3()), &settings, plugin_settings.debug.then_some(&mut gizmos), None);
+        let bit_behind = raycast_first(&mut raycast, Ray3d::new(origin, transform.down().as_vec3() + (-transform.forward() * 0.5)), &settings, plugin_settings.debug.then_some(&mut gizmos), None);
+        let bit_front = raycast_first(&mut raycast, Ray3d::new(origin, transform.down().as_vec3() + (transform.forward() * 0.5)), &settings, plugin_settings.debug.then_some(&mut gizmos), None);
+        if let Some(down) = straight_down {
+            if down.distance() < 0.5 {
+                delta = leg_creature.target_height - down.distance()
+            }
+        } else if let Some(behind) = bit_behind {
+            if behind.distance() < 0.5 {
+                delta = leg_creature.target_height - behind.distance()
+            }
+        } else if let Some(front) = bit_front {
+            if front.distance() < 0.5 {
+                delta = leg_creature.target_height - front.distance()
             }
         }
         transform.translation = transform.translation.lerp(transform.translation + transform.up() * delta, 0.05) ;
@@ -147,6 +173,8 @@ fn handle_up(
     mut leg_creature_query: Query<(&mut Transform, &mut LegCreature)>,
     names_query: Query<&Name>,
     mut gizmos: Gizmos,
+    plugin_settings: Res<LegPluginSettings>,
+    mut debug_resource: ResMut<DebugResource>
 ) {
     for (mut transform, mut leg_creature) in leg_creature_query.iter_mut() {
         let settings = RaycastSettings {
@@ -155,42 +183,53 @@ fn handle_up(
             ..default()
         };
         let mut target_up = leg_creature.up;
-        if let Some(hit) = get_wall_hit_data(&mut raycast, &settings, *transform, &mut gizmos) {
-            target_up = hit.normal().lerp(leg_creature.up, hit.distance());
+        if let Some(hit) = get_wall_hit_data(&mut raycast, &settings, *transform, plugin_settings.debug.then_some(&mut gizmos), Some(&mut debug_resource)) {
+            println!("Hit wall at distance {}", hit.distance());
+            target_up = leg_creature.up.lerp(hit.normal(), hit.distance());
         }
-        else if let Some(hit) = get_cliff_data(&mut raycast, &settings, *transform, &mut gizmos) {
-            target_up = hit.normal().lerp(leg_creature.up, 0.01);
+        else if let Some(hit) = get_cliff_data(&mut raycast, &settings, *transform, plugin_settings.debug.then_some(&mut gizmos), Some(&mut debug_resource)) {
+            println!("Hit cliff");
+            target_up = leg_creature.up.lerp(hit.normal(), 0.2);
         }
-        else if let Some(ground_normal) = get_ground_normal(&mut raycast, &settings, *transform, &mut gizmos) {
-           target_up = ground_normal
+        else if let Some(ground_normal) = get_ground_normal(&mut raycast, &settings, *transform, plugin_settings.debug.then_some(&mut gizmos),  Some(&mut debug_resource)) {
+            println!("Hit ground");
+            target_up = ground_normal
         }
         let mut copy = transform.clone();
         copy.rotation = Quat::from_rotation_arc(*copy.up(), target_up) * copy.rotation;
-        transform.rotation = transform.rotation.lerp(copy.rotation, 0.02);
+        transform.rotation = transform.rotation.lerp(copy.rotation, 0.1);
         leg_creature.up = *transform.up();
     };     
 }
 
-fn get_ground_normal(
-    raycast: &mut Raycast,
-    raycast_settings: &RaycastSettings,
-    transform: Transform,
-    mut _gizmos: &mut Gizmos
-) -> Option<Vec3> {
-    let ray2 = Ray3d::new(transform.translation, transform.down().as_vec3());
-    let hits2 = raycast.cast_ray(ray2, raycast_settings);
-    if let Some((_, hit_data2)) = hits2.first() {
-        if hit_data2.distance() < 1. {
-            return Some(hit_data2.normal());
+fn raycast_first(raycast: &mut Raycast, ray: Ray3d, raycast_settings: &RaycastSettings, maybe_gizmos: Option<&mut Gizmos>, maybe_debug: Option<&mut ResMut<DebugResource>>) -> Option<IntersectionData> {
+    let hits;
+    if let Some(gizmos) = maybe_gizmos {
+        hits = raycast.debug_cast_ray(ray, raycast_settings, gizmos)
+    } else {
+        hits = raycast.cast_ray(ray, raycast_settings)
+    }
+    if let Some(debug) = maybe_debug {
+        if let Some((entity, _)) = hits.first() {
+           // debug.debug(*entity, "HIT RAYCAST");
+        }
+    }
+    hits.first().map(|h| h.1.clone())
+}
+
+fn get_ground_normal(raycast: &mut Raycast, raycast_settings: &RaycastSettings, transform: Transform, maybe_gizmos: Option<&mut Gizmos>, maybe_debug: Option<&mut ResMut<DebugResource>>) -> Option<Vec3> {
+    let ray = Ray3d::new(transform.translation, transform.down().as_vec3());
+    if let Some(hit_data) = raycast_first(raycast, ray, raycast_settings, maybe_gizmos, maybe_debug) {
+        if hit_data.distance() < 0.5 {
+            return Some(hit_data.normal());
         }
     }
     return None;
 }
 
-fn get_wall_hit_data(raycast: &mut Raycast, raycast_settings: &RaycastSettings, transform: Transform, mut _gizmos: &mut Gizmos) -> Option<IntersectionData> {
+fn get_wall_hit_data(raycast: &mut Raycast, raycast_settings: &RaycastSettings, transform: Transform, maybe_gizmos: Option<&mut Gizmos>, maybe_debug: Option<&mut ResMut<DebugResource>>) -> Option<IntersectionData> {
     let ray = Ray3d::new(transform.translation, transform.forward().as_vec3());
-    let hits = raycast.cast_ray(ray, raycast_settings);
-    if let Some((_, hit_data)) = hits.first() {
+    if let Some(hit_data) = raycast_first(raycast, ray, raycast_settings, maybe_gizmos, maybe_debug) {
         if hit_data.distance() < 1. {
             return Some(hit_data.clone());
         }
@@ -198,11 +237,10 @@ fn get_wall_hit_data(raycast: &mut Raycast, raycast_settings: &RaycastSettings, 
     return None
 }
 
-fn get_cliff_data(raycast: &mut Raycast, raycast_settings: &RaycastSettings, transform: Transform, mut _gizmos: &mut Gizmos) -> Option<IntersectionData> {
+fn get_cliff_data(raycast: &mut Raycast, raycast_settings: &RaycastSettings, transform: Transform, maybe_gizmos: Option<&mut Gizmos>, maybe_debug: Option<&mut ResMut<DebugResource>>) -> Option<IntersectionData> {
     let ray = Ray3d::new(transform.translation + transform.forward().as_vec3() * 1.0, transform.down().as_vec3() - transform.forward().as_vec3());
-    let hits = raycast.cast_ray(ray, raycast_settings);
-    if let Some((_, hit_data)) = hits.first() {
-        if hit_data.distance() > 0.5 {
+    if let Some(hit_data) = raycast_first(raycast, ray, raycast_settings, maybe_gizmos, maybe_debug) {
+        if hit_data.distance() < 2. {
             return Some(hit_data.clone());
         }
     }
@@ -299,7 +337,7 @@ fn handle_legs(
 
 fn is_valid_raycast_target(entity: Entity, names_query: &Query<&Name>) -> bool {
     match names_query.get(entity) {
-        Ok(name) => { name.as_str().contains("Cube") },
+        Ok(name) => { name.as_str().contains("Ground") },
         Err(_) => false,
     }
 }

@@ -1,6 +1,7 @@
 use std::env;
 
 use bevy::prelude::*;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use leg::LegPlugin;
 use spider::spawn_spider;
 use ik_arm::IKArmPlugin;
@@ -8,6 +9,7 @@ use ik_arm::IKArmPlugin;
 mod ik_arm;
 mod leg;
 mod spider;
+mod debug_resource;
 
 #[derive(Component)]
 struct Movable;
@@ -24,12 +26,13 @@ struct GroundMarker;
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins((IKArmPlugin, LegPlugin))
+        .add_plugins((DefaultPlugins))
+        .add_plugins((IKArmPlugin, LegPlugin::default()))
         .insert_resource(AmbientLight {
             brightness: 750.0,
             ..default()
         })
+        .add_plugins(debug_resource::plugin)
         .add_systems(Startup, (setup, ).chain())
         .add_systems(Update, (movable, multi_pos_camera))
        // .observe(modify_meshes)
