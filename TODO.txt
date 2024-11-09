@@ -6,9 +6,9 @@ Remove unused code
 Rewrite the garbage code, like for spawning and unifying the legcreature code
 
 Features:
-Add debugging flags for the different parts of the spider 
-    - raycasting for leg
-    - raycasting for body
+Add debugging flags for the different parts of the spider  V
+    - raycasting for leg V
+    - raycasting for body V
 Add a simple waypoint system with the mouse to test "dynamic" navigation in preparation for vlueue
 
 Fixes:

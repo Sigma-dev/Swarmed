@@ -1,24 +1,17 @@
 use std::env;
 
 use bevy::prelude::*;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use leg::LegPlugin;
+use multi_pos::MultiPosCamera;
 use spider::spawn_spider;
 use ik_arm::IKArmPlugin;
 
-mod ik_arm;
-mod leg;
-mod spider;
-mod debug_resource;
-
-#[derive(Component)]
-struct Movable;
-
-#[derive(Component)]
-struct MultiPosCamera {
-    positions: Vec<(Vec3, Vec3)>,
-    index: i32
-}
+pub mod ik_arm;
+pub mod leg;
+pub mod spider;
+pub mod debug_resource;
+pub mod movable;
+pub mod multi_pos;
 
 #[derive(Component)]
 struct GroundMarker;
@@ -26,16 +19,14 @@ struct GroundMarker;
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     App::new()
-        .add_plugins((DefaultPlugins))
+        .add_plugins(DefaultPlugins)
         .add_plugins((IKArmPlugin, LegPlugin::default()))
         .insert_resource(AmbientLight {
             brightness: 750.0,
             ..default()
         })
-        .add_plugins(debug_resource::plugin)
-        .add_systems(Startup, (setup, ).chain())
-        .add_systems(Update, (movable, multi_pos_camera))
-       // .observe(modify_meshes)
+        .add_plugins((debug_resource::plugin, movable::plugin, multi_pos::plugin))
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -43,19 +34,14 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    // Create a camera
-    commands.spawn((Camera3dBundle {
-            transform: Transform::from_xyz(-7.0, 7., -7.0)
-                .looking_at(Vec3::new(0.0, 0., 0.0), Vec3::Y),
-            ..default()
-        },
-        MultiPosCamera { 
-            positions: vec![
+    commands.spawn((
+        Camera3dBundle::default(),
+        MultiPosCamera::new(
+            vec![
                 (Vec3::new(-7.0, 7., -7.0), Vec3::new(0.0, 0., 0.0)),
                 (Vec3::new(0.0, 10., 0.0), Vec3::new(0.0, 0., 0.0))
-            ],
-            index: 0,
-        }
+            ]
+        ).with_lerp(0.05)
     ));        
     commands.spawn((
         SceneBundle {
@@ -76,50 +62,4 @@ fn setup(
     });
 
     spawn_spider(&mut commands, &asset_server);
-}
-
-fn movable(
-    mut transform_query: Query<&mut Transform, With<Movable>>,
-    keys: Res<ButtonInput<KeyCode>>,
-) {
-    for mut movable_transform in transform_query.iter_mut() {
-        let mut vec = Vec3::ZERO;
-        if keys.pressed(KeyCode::KeyW) {
-            vec.z += 1.0
-        }
-        if keys.pressed(KeyCode::KeyS) {
-            vec.z -= 1.0
-        }
-        if keys.pressed(KeyCode::KeyD) {
-            vec.x -= 1.0
-        }
-        if keys.pressed(KeyCode::KeyA) {
-            vec.x += 1.0
-        }
-        if keys.pressed(KeyCode::KeyQ) {
-            vec.y += 1.0
-        }
-        if keys.pressed(KeyCode::KeyE) {
-            vec.y -= 1.0
-        }
-        movable_transform.translation += vec * 0.01;
-    }
-}
-
-fn multi_pos_camera(
-    mut camera_query: Query<(&mut Transform, &mut MultiPosCamera)>,
-    keys: Res<ButtonInput<KeyCode>>,
-) {
-    for (mut transform, mut multi_pos) in camera_query.iter_mut() {
-        if keys.just_pressed(KeyCode::ArrowLeft) {
-            multi_pos.index -= 1;
-        }
-        else if keys.just_pressed(KeyCode::ArrowRight) {
-            multi_pos.index += 1;
-        }
-        multi_pos.index = multi_pos.index.rem_euclid(multi_pos.positions.len() as i32);
-        //multi_pos.index = multi_pos.index % (multi_pos.positions.len() as i32);
-        let (position, target) = multi_pos.positions[multi_pos.index as usize];
-        *transform = Transform::from_translation(position).looking_at(target, Vec3::Y);
-    }
 }

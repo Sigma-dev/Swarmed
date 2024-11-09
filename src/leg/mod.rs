@@ -183,16 +183,16 @@ fn handle_up(
             ..default()
         };
         let mut target_up = leg_creature.up;
-        if let Some(hit) = get_wall_hit_data(&mut raycast, &settings, *transform, plugin_settings.debug.then_some(&mut gizmos), Some(&mut debug_resource)) {
-            println!("Hit wall at distance {}", hit.distance());
+        if let Some(hit) = get_wall_hit_data(&mut raycast, &settings, *transform, plugin_settings.debug.then_some(&mut gizmos), plugin_settings.debug.then_some(&mut debug_resource)) {
+            if plugin_settings.debug { println!("Hit wall at distance {}", hit.distance()); }
             target_up = leg_creature.up.lerp(hit.normal(), hit.distance());
         }
-        else if let Some(hit) = get_cliff_data(&mut raycast, &settings, *transform, plugin_settings.debug.then_some(&mut gizmos), Some(&mut debug_resource)) {
-            println!("Hit cliff");
+        else if let Some(hit) = get_cliff_data(&mut raycast, &settings, *transform, plugin_settings.debug.then_some(&mut gizmos), plugin_settings.debug.then_some(&mut debug_resource)) {
+            if plugin_settings.debug { println!("Hit cliff"); }
             target_up = leg_creature.up.lerp(hit.normal(), 0.2);
         }
-        else if let Some(ground_normal) = get_ground_normal(&mut raycast, &settings, *transform, plugin_settings.debug.then_some(&mut gizmos),  Some(&mut debug_resource)) {
-            println!("Hit ground");
+        else if let Some(ground_normal) = get_ground_normal(&mut raycast, &settings, *transform, plugin_settings.debug.then_some(&mut gizmos),  plugin_settings.debug.then_some(&mut debug_resource)) {
+            if plugin_settings.debug { println!("Hit ground"); }
             target_up = ground_normal
         }
         let mut copy = transform.clone();
@@ -211,7 +211,7 @@ fn raycast_first(raycast: &mut Raycast, ray: Ray3d, raycast_settings: &RaycastSe
     }
     if let Some(debug) = maybe_debug {
         if let Some((entity, _)) = hits.first() {
-           // debug.debug(*entity, "HIT RAYCAST");
+           debug.debug(*entity, "HIT RAYCAST");
         }
     }
     hits.first().map(|h| h.1.clone())

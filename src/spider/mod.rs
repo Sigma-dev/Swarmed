@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{ik_arm::{self, IKArmTarget}, leg::{IKLeg, LegCreature, LegSide}, Movable};
+use crate::{ik_arm::{self, IKArmTarget}, leg::{IKLeg, LegCreature, LegSide}, movable::Movable};
 
 pub fn spawn_spider(
     mut commands: &mut Commands,
@@ -14,9 +14,7 @@ pub fn spawn_spider(
             transform: Transform::from_xyz(0., 0.3, 0.0),
             ..default()
         },
-        //Movable,
         LegCreature::new(LegSide::None, 0.2, legs_info, 0.2),
-        //LegCreature::new(LegSide::None, 0.2, Vec::new(), 0.2),
         Name::new("SpiderBody")
     ));
 }
@@ -47,7 +45,7 @@ pub fn _spawn_test_arm(
         },
         Name::new("Arm"),
         IKArmTarget {target},
-        Movable,
+        Movable::new(1.),
     )
     );
 }
