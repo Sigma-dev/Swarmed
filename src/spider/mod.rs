@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{ik_arm::{self, IKArmTarget}, leg::{IKLeg, LegCreature, LegSide}, movable::Movable};
+use crate::{ik_arm::{self, IKArmTarget}, leg::{leg_creature::{LegCreature, LegSide}, IKLeg}, movable::Movable};
 
 pub fn spawn_spider(
     mut commands: &mut Commands,

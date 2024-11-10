@@ -12,3 +12,5 @@ Cargo.lock
 *.pdb
 
 *.blend1
+
+*.ignore.rs
