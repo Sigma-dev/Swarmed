@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 use bevy_mod_raycast::prelude::*;
-
 use crate::debug_resource::DebugResource;
-
 use super::{is_valid_raycast_target, IKLeg, LegPluginSettings};
+
+pub mod input;
+pub mod target;
 
 #[derive(Component)]
 pub struct LegCreature {
@@ -14,6 +15,7 @@ pub struct LegCreature {
     pub speed_mult: f32,
     pub(crate) target_offset: Vec3,
 }
+
 impl LegCreature {
     pub fn new(
         current_side: LegSide,
@@ -76,39 +78,6 @@ pub(crate) fn determine_side(
                 leg_creature.current_side = LegSide::Left;
             }
         }
-    }
-}
-
-pub(crate) fn move_creature(
-    mut creature_query: Query<(&mut Transform, &mut LegCreature)>,
-    keys: Res<ButtonInput<KeyCode>>,
-) {
-    for (mut transform, mut creature) in creature_query.iter_mut() {
-        let mut vec = Vec3::ZERO;
-        let mut rotation = 0.;
-        if keys.pressed(KeyCode::KeyW) {
-            vec.z += 1.0
-        }
-        if keys.pressed(KeyCode::KeyS) {
-            vec.z -= 1.0
-        }
-        if keys.pressed(KeyCode::KeyD) {
-            vec.x -= 1.0
-        }
-        if keys.pressed(KeyCode::KeyA) {
-            vec.x += 1.0
-        }
-        if keys.pressed(KeyCode::KeyQ) {
-            rotation = 1.
-        }
-        if keys.pressed(KeyCode::KeyE) {
-            rotation = -1.
-        }
-        if vec != Vec3::ZERO { vec = vec.normalize(); };
-        creature.target_offset = (-vec * creature.speed_mult * 1.).clamp_length(0., 1.);
-        let copy = transform.clone();
-        transform.translation += ((copy.forward() * vec.z) + (copy.right() * vec.x))  * creature.speed_mult * 0.05;
-        transform.rotate_local_y(rotation * 0.01);
     }
 }
 

@@ -1,9 +1,8 @@
 use bevy::prelude::*;
 use bevy_mod_raycast::prelude::*;
-use leg_creature::{determine_side, handle_body, handle_height, handle_leg_creature, handle_up, move_creature, LegCreature, LegSide};
+use leg_creature::{determine_side, handle_body, handle_height, handle_leg_creature, handle_up, input, LegCreature, LegSide};
 
 pub mod leg_creature;
-
 use crate::ik_arm;
 
 #[derive(Component)]
@@ -58,10 +57,12 @@ impl LegPlugin {
 
 impl Plugin for LegPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (handle_up, handle_body, determine_side, handle_leg_creature, handle_legs, move_creature, handle_height).chain())
+        app.add_systems(Update, (handle_up, handle_body, determine_side, handle_leg_creature, handle_legs, handle_height).chain())
         .observe(setup_legs);
     
         app.insert_resource(LegPluginSettings { debug_body: self.debug_body, debug_legs: self.debug_legs });
+
+        app.add_plugins(input::plugin);
     }
 }
 
