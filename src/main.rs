@@ -1,6 +1,7 @@
 use std::env;
 
 use bevy::prelude::*;
+use bevy_mod_picking::DefaultPickingPlugins;
 use leg::LegPlugin;
 use multi_pos::MultiPosCamera;
 use spider::spawn_spider;
@@ -19,7 +20,7 @@ struct GroundMarker;
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, DefaultPickingPlugins))
         .add_plugins((IKArmPlugin, LegPlugin::default()))
         .insert_resource(AmbientLight {
             brightness: 750.0,

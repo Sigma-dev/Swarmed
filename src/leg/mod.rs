@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_mod_raycast::prelude::*;
-use leg_creature::{determine_side, handle_body, handle_height, handle_leg_creature, handle_up, input, LegCreature, LegSide};
+use leg_creature::{determine_side, handle_body, handle_height, handle_leg_creature, handle_up, input, target, LegCreature, LegSide};
 
 pub mod leg_creature;
 use crate::ik_arm;
@@ -28,6 +28,12 @@ impl IKLeg {
         can_start_step: bool,
     ) -> Self {
         Self { step_offset, step_distance, step_duration, step_height, leg_side, can_start_step, step_start: Vec3::ZERO, stepping: false, step_elapsed: 0. }
+    }
+
+    pub fn step(&mut self, start: Vec3) {
+        self.stepping = true;
+        self.step_elapsed = 0.;
+        self.step_start = start;
     }
 }
 
@@ -62,7 +68,7 @@ impl Plugin for LegPlugin {
     
         app.insert_resource(LegPluginSettings { debug_body: self.debug_body, debug_legs: self.debug_legs });
 
-        app.add_plugins(input::plugin);
+        app.add_plugins((input::plugin, target::plugin));
     }
 }
 
@@ -98,9 +104,9 @@ fn handle_legs(
             let distance = arm.target.distance(target);
             if !leg.stepping {
                 if distance > leg.step_distance && leg.can_start_step {
-                    leg.stepping = true;
-                    leg.step_elapsed = 0.;
-                    leg.step_start = arm.target;
+                    leg.step(arm.target);
+                } else if arm.target.distance(desired_pos) > 1. {
+                    leg.step(arm.target);
                 }
             } else {
                 let step_progress = leg.step_elapsed / leg.step_duration;

@@ -9,7 +9,8 @@ Features:
 Add debugging flags for the different parts of the spider  2/2V
     - raycasting for leg V
     - raycasting for body V
-Add a simple waypoint system with the mouse to test "dynamic" navigation in preparation for vlueue
+Add a simple waypoint system with the mouse to test "dynamic" navigation in preparation for vlueue V
 
 Fixes:
 Fix spider floating in midair when climbing up
+Fix spider clipping through ground when climbing edge
