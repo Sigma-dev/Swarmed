@@ -5,7 +5,7 @@ pub fn spawn_spider(
     mut commands: &mut Commands,
     asset_server: &Res<AssetServer>,
 ) {
-    let legs_info: Vec<(Entity, Vec3)> = spawn_legs(&mut commands, &asset_server);
+    let legs_info: Vec<(Entity, Vec3)> = spawn_legs(&mut commands, &asset_server, 2);
 
     commands.spawn((
         SceneBundle {
@@ -13,7 +13,7 @@ pub fn spawn_spider(
             transform: Transform::from_xyz(0., 0.3, 0.0),
             ..default()
         },
-        LegCreature::new(LegSide::None, 0.2, legs_info, 0.2),
+        LegCreature::new(LegSide::None, 0.25, legs_info, 0.2),
         TargetControl,
         Name::new("SpiderBody")
     ));
@@ -52,43 +52,45 @@ pub fn _spawn_test_arm(
 
 fn spawn_legs(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>
+    asset_server: &Res<AssetServer>,
+    number_per_side: u8,
 ) -> Vec<(Entity, Vec3)> {
-    let mut left_legs = Vec::new();
-    let mut right_legs = Vec::new();
-    for i in 0..2 {
-        let side_mult = if i == 0 { 1. }  else {-1.};
-        let side = if i == 0 { LegSide::Left }  else { LegSide::Right };
-        let side2 = if i == 0 { LegSide::Right }  else { LegSide::Left };
-        for j in 0..2 {
-            let front_or_back_mult = if j == 0 { 1. }  else {-1.};
-            let offset = Vec3::new(0.15 * side_mult, -0.1, 0.1 * front_or_back_mult);
-            let side3 = if j == 0 { side } else {side2};
-            let collector = if i == 0 { &mut left_legs } else {&mut right_legs };
-            let name = format!("{i}{j}", i=i, j=j);
-            collector.push((commands.spawn((
+    let step_width = 0.5;
+    let step_spacing = 0.45;
+    let step_target_height = -0.1;
+    let step_distance = 0.15;
+    let step_duration = 0.15;
+    let step_height = 0.3;
+
+    let leg_width = 0.15;
+    let leg_spacing = 0.15;
+    let leg_height = -0.1;
+    let mut legs = Vec::new();
+
+    for side in [-1, 1] {
+        legs.reverse();
+        for n in 0..number_per_side {
+            let mut group = n;
+            if side == 1 { group += 1 };
+            let leg_side = if group % 2 == 0 { LegSide::Left } else { LegSide::Right };
+            let forward_progress = (n as f32 / (number_per_side - 1) as f32) * 2. - 1.;
+            legs.push((commands.spawn((
                 SceneBundle {
                     scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("leg/legV2.glb")),
                     ..default()
                 }, 
-                ik_arm::IKArm { 
-                    target: Vec3{x: 1., y: 0., z: 1.},
-                    up: Vec3::Y
-                },
+                ik_arm::IKArm::default(),
                 IKLeg::new(
-                    Vec3{x: 0.6 * side_mult, y: -0.1, z: 0.45 * front_or_back_mult }, 
-                    0.1, 
-                    0.15,
-                    0.3,
-                    side3,
+                    Vec3{x: step_width * side as f32, y: step_target_height, z: step_spacing * forward_progress }, 
+                    step_distance, 
+                    step_duration,
+                    step_height,
+                    leg_side,
                     false,
                 ),
-                Name::new(name)
-            )
-            ).id(), offset));
+                Name::new(format!("Leg"))
+            )).id(), Vec3::new(leg_width * side as f32, leg_height, leg_spacing * forward_progress)));
         }
     }
-    right_legs.reverse();
-    left_legs.append(&mut right_legs);
-    return left_legs;
+    return legs;
 }

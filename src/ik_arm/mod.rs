@@ -2,7 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use bevy::{prelude::*, render::mesh::skinning::SkinnedMesh};
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct IKArm {
     pub target: Vec3,
     pub up: Vec3,

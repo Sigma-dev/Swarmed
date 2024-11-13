@@ -37,6 +37,16 @@ pub enum LegSide {
     #[default] None,
 }
 
+impl LegSide {
+    pub fn to_string(&self) -> String {
+        match self {
+            LegSide::Left => "Left".to_string(),
+            LegSide::Right => "Right".to_string(),
+            LegSide::None => "None".to_string(),
+        }
+    }
+}
+
 pub(crate) fn handle_leg_creature(
     mut leg_query: Query<(&mut IKLeg, &mut Transform)>,
     leg_creature_query: Query<(&LegCreature, &GlobalTransform)>,
