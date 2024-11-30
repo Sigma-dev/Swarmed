@@ -8,11 +8,8 @@ pub fn spawn_spider(
     let legs_info: Vec<(Entity, Vec3)> = spawn_legs(&mut commands, &asset_server, 2);
 
     commands.spawn((
-        SceneBundle {
-            scene: asset_server.load("spider/spiderV2.glb#Scene0"),
-            transform: Transform::from_xyz(0., 0.3, 0.0),
-            ..default()
-        },
+        SceneRoot(asset_server.load("spider/spiderV2.glb#Scene0")),
+        Transform::from_xyz(0., 0.3, 0.0),
         LegCreature::new(LegSide::None, 0.25, legs_info, 0.2),
         TargetControl,
         Name::new("SpiderBody")
@@ -26,19 +23,13 @@ pub fn _spawn_test_arm(
     materials: &mut ResMut<Assets<StandardMaterial>>
 ) {
     let target = commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.1, 0.1, 0.1)),
-            transform: Transform::from_xyz(0.2, 0.3, 0.0),
-            material: materials.add(Color::srgb_u8(10, 10, 10)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::new(0.1, 0.1, 0.1))),
+        Transform::from_xyz(0.2, 0.3, 0.0),
+        MeshMaterial3d(materials.add(Color::srgb_u8(10, 10, 10))),
     )).id();
 
-    commands.spawn((SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("leg/legV2.glb")),
-            ..default()
-        }, 
+    commands.spawn((
+        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("leg/legV2.glb"))),
         ik_arm::IKArm { 
             target: Vec3{x: 1., y: 1., z: 1.},
             up: Vec3::Y
@@ -75,10 +66,7 @@ fn spawn_legs(
             let leg_side = if group % 2 == 0 { LegSide::Left } else { LegSide::Right };
             let forward_progress = (n as f32 / (number_per_side - 1) as f32) * 2. - 1.;
             legs.push((commands.spawn((
-                SceneBundle {
-                    scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("leg/legV2.glb")),
-                    ..default()
-                }, 
+                SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("leg/legV2.glb"))),
                 ik_arm::IKArm::default(),
                 IKLeg::new(
                     Vec3{x: step_width * side as f32, y: step_target_height, z: step_spacing * forward_progress }, 

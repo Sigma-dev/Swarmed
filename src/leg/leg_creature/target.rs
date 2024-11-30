@@ -1,6 +1,4 @@
-use bevy::prelude::*;
-use bevy_mod_picking::prelude::PointerInteraction;
-
+use bevy::{picking::pointer::PointerInteraction, prelude::*};
 use super::LegCreature;
 
 #[derive(Component)]
@@ -29,10 +27,10 @@ pub(crate) fn follow_target(
             return;
         }
         let vec = (target_position - transform.translation).normalize();
-        let rotation = transform.forward().xz().angle_between(vec.xz()) * 0.1;
+        let rotation = transform.forward().xz().angle_to(vec.xz()) * 0.1;
         creature.target_offset = (-Vec3::Z * creature.speed_mult * 1.).clamp_length(0., 1.);
-        transform.translation += vec * creature.speed_mult * 10. * time.delta_seconds();
-        transform.rotate_local_y(-rotation * 40. * time.delta_seconds());
+        transform.translation += vec * creature.speed_mult * 10. * time.delta_secs();
+        transform.rotate_local_y(-rotation * 40. * time.delta_secs());
     }
 }
 

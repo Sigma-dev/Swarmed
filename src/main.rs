@@ -1,7 +1,6 @@
 use std::env;
 
 use bevy::prelude::*;
-use bevy_mod_picking::DefaultPickingPlugins;
 use leg::LegPlugin;
 use multi_pos::MultiPosCamera;
 use spider::spawn_spider;
@@ -20,7 +19,7 @@ struct GroundMarker;
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     App::new()
-        .add_plugins((DefaultPlugins, DefaultPickingPlugins))
+        .add_plugins((DefaultPlugins, MeshPickingPlugin))
         .add_plugins((IKArmPlugin, LegPlugin::default()))
         .insert_resource(AmbientLight {
             brightness: 750.0,
@@ -36,7 +35,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
-        Camera3dBundle::default(),
+        Camera3d::default(),
         MultiPosCamera::new(
             vec![
                 (Vec3::new(-7.0, 7., -7.0), Vec3::new(0.0, 0., 0.0)),
@@ -45,22 +44,18 @@ fn setup(
         ).with_lerp(0.05)
     ));        
     commands.spawn((
-        SceneBundle {
-        scene: asset_server.load("map/map.glb#Scene0"),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..Default::default()
-        },
+        SceneRoot(asset_server.load("map/map.glb#Scene0")),
+        Transform::from_xyz(0.0, 0.0, 0.0),
         GroundMarker,
     ));
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     spawn_spider(&mut commands, &asset_server);
 }

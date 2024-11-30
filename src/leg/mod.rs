@@ -1,6 +1,5 @@
 use bevy::prelude::*;
-use bevy_mod_raycast::prelude::*;
-use leg_creature::{determine_side, handle_body, handle_height, handle_leg_creature, handle_up, input, target, LegCreature, LegSide};
+use leg_creature::{cast_ray, determine_side, handle_body, handle_height, handle_leg_creature, handle_up, input, target, LegCreature, LegSide};
 
 pub mod leg_creature;
 use crate::ik_arm;
@@ -64,7 +63,7 @@ impl LegPlugin {
 impl Plugin for LegPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, (handle_up, handle_body, determine_side, handle_leg_creature, handle_legs, handle_height).chain())
-        .observe(setup_legs);
+        .add_observer(setup_legs);
     
         app.insert_resource(LegPluginSettings { debug_body: self.debug_body, debug_legs: self.debug_legs });
 
@@ -83,7 +82,7 @@ fn setup_legs(
 fn handle_legs(
     leg_creature_query: Query<(&LegCreature, &GlobalTransform)>,
     mut leg_query: Query<(&mut ik_arm::IKArm, &mut IKLeg)>,
-    mut raycast: Raycast,
+    mut raycast: MeshRayCast,
     mut gizmos: Gizmos,
     names_query: Query<&Name>,
     time: Res<Time>,
@@ -113,7 +112,7 @@ fn handle_legs(
                 arm.target = leg.step_start.lerp(target, leg.step_elapsed / leg.step_duration);
                 let y_offset = (1. - ((step_progress * 2.) - 1.).abs()) * leg.step_height;
                 arm.target += leg_creature_transform.up() * y_offset;
-                leg.step_elapsed += time.delta_seconds();
+                leg.step_elapsed += time.delta_secs();
                 if leg.step_elapsed >= leg.step_duration {
                     arm.target = target;
 
@@ -135,7 +134,7 @@ fn is_valid_raycast_target(entity: Entity, names_query: &Query<&Name>) -> bool {
 fn find_step(
     transform: Transform,
     desired_pos: Vec3,
-    raycast: &mut Raycast,
+    raycast: &mut MeshRayCast,
     mut maybe_gizmos: &mut Option<&mut Gizmos>,
     names_query: &Query<&Name>,
     name: String,
@@ -152,8 +151,8 @@ fn find_step(
     ];
 
     let mut hits = Vec::new();
-    let settings = RaycastSettings {
-        visibility: RaycastVisibility::Ignore,
+    let settings = RayCastSettings {
+        visibility: RayCastVisibility::Any,
         filter: &|entity| is_valid_raycast_target(entity, &names_query),
         ..default()
     };
@@ -177,16 +176,12 @@ fn get_ray_score(hit: Vec3, desired_pos: Vec3) -> f32 {
     hit.distance(desired_pos)
 }
 
-fn try_ray(raycast: &mut Raycast, raycast_settings: &RaycastSettings, origin: Vec3, desired_pos: Vec3, maybe_gizmos: &mut Option<&mut Gizmos>) -> Option<Vec3> {
-    let ray = Ray3d::new(origin, (desired_pos - origin).normalize());
+fn try_ray(raycast: &mut MeshRayCast, raycast_settings: &RayCastSettings, origin: Vec3, desired_pos: Vec3, maybe_gizmos: &mut Option<&mut Gizmos>) -> Option<Vec3> {
+    let ray = Ray3d::new(origin, Dir3::new(desired_pos - origin).unwrap());
     let hits;
-    if let Some(gizmos) = maybe_gizmos  {
-        hits = raycast.debug_cast_ray(ray, raycast_settings, gizmos);
-    } else {
-       hits = raycast.cast_ray(ray, raycast_settings);
-    }
+    hits = cast_ray(raycast, ray, raycast_settings, maybe_gizmos);
     if let Some((_, hit_data)) = hits.first() {
-        return Some(hit_data.position());
+        return Some(hit_data.point);
     }
     return None;
 }

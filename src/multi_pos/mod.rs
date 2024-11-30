@@ -56,7 +56,7 @@ fn multi_pos(
         let target = Transform::from_translation(position).looking_at(look_at, Vec3::Y);
         if let Some(lerp) = &multi_pos.lerp {
             transform.translation = transform.translation.lerp(target.translation, lerp.lerp_speed);
-            *transform.rotation = *transform.rotation.lerp(target.rotation, lerp.lerp_speed);
+            transform.rotation = transform.rotation.lerp(target.rotation, lerp.lerp_speed);
         } else {
             *transform = target;
         }
